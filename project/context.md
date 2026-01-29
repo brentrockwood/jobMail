@@ -147,3 +147,54 @@ Phase 2 - Core Classification:
 
 EOF
 
+
+---
+date: 2026-01-29T12:58:30-0500
+hash: 9wQpsrugHdCgrCKAwK1yZrvZxcEG3amkpEL/jrkmGRw=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 0ae2f2719bc2ee8d278544d4e4747bd2d1ce72ec
+---
+
+Corrected workflow per DOA branching requirements.
+
+**Issue Identified:**
+Phase 1 work was initially committed directly to main branch, violating DOA requirement: "All new work after a push to origin must begin on a fresh branch."
+
+**Resolution:**
+- Used git reset --soft HEAD~1 to uncommit
+- Created branch: phase-1-foundation
+- Made additional improvements before recommitting:
+  1. Added fourth classification category: "Job Board" (for automated job notifications)
+  2. Updated config to track AI provider/model per classification (for learning over time)
+  3. Verified all three AI providers have model configuration (OpenAI, Anthropic, Ollama)
+
+**Updated Classification Categories:**
+1. acknowledgement → "Acknowledged" label + archive
+2. rejection → "Rejected" label + archive
+3. followup_required → "FollowUp" label (no archive)
+4. jobboard → "JobBoard" label + archive (NEW - automated job board notifications)
+5. unknown/unclear → no action, log for review
+
+**Files Updated with JobBoard:**
+- .env.example: Added LABEL_JOBBOARD=JobBoard
+- src/config.py: Added label_jobboard field
+- project/project.md: Added jobboard classification, provider/model tracking
+- README.md: Documented Job Board category and label config
+
+**Commit:**
+```
+branch: phase-1-foundation
+commit: 0ae2f27
+message: Phase 1: Foundation - Project structure, config, Gmail auth, documentation
+```
+
+**Next Steps:**
+- User will set up Google Cloud credentials to test documentation
+- Once validated, will proceed with Phase 2 on a new branch (per DOA)
+
+**DOA Feedback:**
+The DOA branching requirement was clear. I missed it on first read. No language changes needed.
+
+EOF
+
