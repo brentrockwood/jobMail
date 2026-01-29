@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Default values
+FILE="context.md"
+SIZE_LIMIT=1048576  # 1MB in bytes
+KEEP_ENTRIES=2
+
+# Usage function
+usage() {
+    cat << EOF
+Usage: rotate-context [OPTIONS]
+
+Options:
+  --file FILE         Context file to rotate (default: context.md)
+  --size BYTES        Size limit in bytes (default: 1048576 = 1MB)
+  --keep N            Number of recent entries to keep (default: 2)
+  --help, -h          Show this help message
+
+Returns:
+  0 if rotation occurred (prints overflow filename to stdout)
+  1 if no rotation needed
+  2 on error
+
+Examples:
+  rotate-context
+  rotate-context --file mycontext.md --size 2097152 --keep 3
+EOF
+    exit 0
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --file)
+            FILE="$2"
+            shift 2
+            ;;
+        --size)
+            SIZE_LIMIT="$2"
+            shift 2
+            ;;
+        --keep)
+            KEEP_ENTRIES="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
+            ;;
+        *)
+            echo "Error: Unknown option: $1" >&2
+            usage
+            ;;
+    esac
+done
+
+# Validate file exists
+if [[ ! -f "$FILE" ]]; then
+    echo "Error: File not found: $FILE" >&2
+    exit 2
+fi
+
+# Check file size
+FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE" 2>/dev/null)
+
+if [[ $FILE_SIZE -le $SIZE_LIMIT ]]; then
+    # No rotation needed
+    exit 1
+fi
+
+# Count entries (count occurrences of "^---$" followed by header block)
+# An entry starts with "---" at beginning of line
+ENTRY_COUNT=$(grep -c "^---$" "$FILE" || echo "0")
+
+# We need pairs of --- markers (start and end of header)
+# So divide by 2 to get actual entry count
+ENTRY_COUNT=$((ENTRY_COUNT / 2))
+
+if [[ $ENTRY_COUNT -le $KEEP_ENTRIES ]]; then
+    echo "Warning: File exceeds size limit but has $ENTRY_COUNT entries (<= $KEEP_ENTRIES). No rotation performed." >&2
+    exit 1
+fi
+
+# Generate overflow filename with timestamp
+TIMESTAMP=$(date +"%Y-%m-%dT%H_%M_%S%z")
+# Convert offset format from +0500 to -0500 or +0530 format
+TIMESTAMP=$(echo "$TIMESTAMP" | sed 's/\([+-]\)\([0-9][0-9]\)\([0-9][0-9]\)$/\1\2\3/')
+OVERFLOW_FILE="${FILE%.md}-${TIMESTAMP}.md"
+
+# Create temporary file for processing
+TEMP_FILE=$(mktemp)
+trap "rm -f '$TEMP_FILE'" EXIT
+
+# Extract all entries into array by finding entry boundaries
+# Entry format:
+# ---
+# [header]
+# ---
+# [body]
+# EOF
+# [blank line]
+
+# Read file and split into entries
+# Strategy: Find each "---" that starts a header, then find the matching closing "---", 
+# then find "EOF", then find the blank line
+
+# Use awk to split entries
+awk '
+BEGIN { 
+    entry = ""
+    in_entry = 0
+    entry_num = 0
+    after_eof = 0
+}
+
+/^---$/ {
+    if (in_entry == 0) {
+        # Start of new entry header
+        in_entry = 1
+        after_eof = 0
+        if (entry != "") {
+            # Save previous entry (strip trailing newlines)
+            print "ENTRY_" entry_num
+            print entry
+            print "END_ENTRY_" entry_num
+            entry_num++
+            entry = ""
+        }
+    } else if (in_entry == 1) {
+        # End of header, start of body
+        in_entry = 2
+    }
+    entry = entry $0 "\n"
+    next
+}
+
+/^EOF$/ {
+    entry = entry $0 "\n"
+    if (in_entry == 2) {
+        # End of body, entry complete
+        in_entry = 0
+        after_eof = 1
+    }
+    next
+}
+
+{
+    # Skip blank lines after EOF (between entries)
+    if (after_eof == 1 && /^[[:space:]]*$/) {
+        next
+    }
+    after_eof = 0
+    entry = entry $0 "\n"
+}
+
+END {
+    if (entry != "") {
+        print "ENTRY_" entry_num
+        print entry
+        print "END_ENTRY_" entry_num
+    }
+}
+' "$FILE" > "$TEMP_FILE"
+
+# Count actual entries from temp file
+ACTUAL_ENTRIES=$(grep -c "^ENTRY_" "$TEMP_FILE" || echo "0")
+
+if [[ $ACTUAL_ENTRIES -le $KEEP_ENTRIES ]]; then
+    echo "Warning: File has $ACTUAL_ENTRIES entries (<= $KEEP_ENTRIES). No rotation performed." >&2
+    exit 1
+fi
+
+# Calculate how many entries to move to overflow
+MOVE_ENTRIES=$((ACTUAL_ENTRIES - KEEP_ENTRIES))
+
+# Extract entries to overflow file
+{
+    for i in $(seq 0 $((MOVE_ENTRIES - 1))); do
+        sed -n "/^ENTRY_${i}$/,/^END_ENTRY_${i}$/p" "$TEMP_FILE" | grep -v "^ENTRY_${i}$" | grep -v "^END_ENTRY_${i}$"
+        # Add blank line between entries except after last one
+        if [[ $i -lt $((MOVE_ENTRIES - 1)) ]]; then
+            echo ""
+        fi
+    done
+} > "$OVERFLOW_FILE"
+
+# Extract remaining entries to keep in original file
+{
+    for i in $(seq $MOVE_ENTRIES $((ACTUAL_ENTRIES - 1))); do
+        sed -n "/^ENTRY_${i}$/,/^END_ENTRY_${i}$/p" "$TEMP_FILE" | grep -v "^ENTRY_${i}$" | grep -v "^END_ENTRY_${i}$"
+        # Add blank line between entries except after last one
+        if [[ $i -lt $((ACTUAL_ENTRIES - 1)) ]]; then
+            echo ""
+        fi
+    done
+} > "$FILE.tmp"
+
+# Replace original file with trimmed version
+mv "$FILE.tmp" "$FILE"
+
+# Output overflow filename to stdout
+echo "$OVERFLOW_FILE"
+
+exit 0

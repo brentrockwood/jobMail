@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Default values
+OUTPUT_FILE="context.md"
+AGENT=""
+MODEL=""
+SESSION=""
+BODY_FILE=""
+BODY_TEXT=""
+
+# Usage function
+usage() {
+    cat << EOF
+Usage: add-context --agent AGENT --model MODEL [OPTIONS] [BODY_TEXT]
+
+Required:
+  --agent AGENT       Agent name and version
+  --model MODEL       Model name and version
+
+Optional:
+  --session SESSION   Session identifier
+  --output FILE       Output context file (default: context.md)
+  --file FILE         Read body from file
+  
+Body input (priority order):
+  1. Remaining arguments as body text
+  2. --file to read from file
+  3. stdin if no body provided
+
+Examples:
+  add-context --agent "CLI/1.0" --model "gpt-4" "This is my context"
+  add-context --agent "CLI/1.0" --model "gpt-4" --file body.txt
+  cat body.txt | add-context --agent "CLI/1.0" --model "gpt-4"
+EOF
+    exit 1
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --agent)
+            AGENT="$2"
+            shift 2
+            ;;
+        --model)
+            MODEL="$2"
+            shift 2
+            ;;
+        --session)
+            SESSION="$2"
+            shift 2
+            ;;
+        --output)
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        --file)
+            BODY_FILE="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
+            ;;
+        *)
+            # Remaining args are body text
+            BODY_TEXT="$*"
+            break
+            ;;
+    esac
+done
+
+# Validate required parameters
+if [[ -z "$AGENT" ]] || [[ -z "$MODEL" ]]; then
+    echo "Error: --agent and --model are required" >&2
+    usage
+fi
+
+# Get body text from appropriate source
+if [[ -n "$BODY_TEXT" ]]; then
+    # Body provided as arguments
+    BODY="$BODY_TEXT"
+elif [[ -n "$BODY_FILE" ]]; then
+    # Body from file
+    if [[ ! -f "$BODY_FILE" ]]; then
+        echo "Error: File not found: $BODY_FILE" >&2
+        exit 1
+    fi
+    BODY=$(cat "$BODY_FILE")
+elif [[ ! -t 0 ]]; then
+    # Body from stdin
+    BODY=$(cat)
+else
+    echo "Error: No body text provided" >&2
+    usage
+fi
+
+# Validate body is not empty
+if [[ -z "$BODY" ]]; then
+    echo "Error: Body text is empty" >&2
+    exit 1
+fi
+
+# Generate date (ISO 8601 with offset)
+DATE=$(date +"%Y-%m-%dT%H:%M:%S%z")
+
+# Generate hash (SHA-256 of body, base64 encoded)
+HASH=$(echo -n "$BODY" | openssl dgst -sha256 -binary | base64)
+
+# Get git commit if in a git repo
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    START_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "")
+else
+    START_COMMIT=""
+fi
+
+# Build the entry
+ENTRY="---
+date: $DATE
+hash: $HASH
+agent: $AGENT
+model: $MODEL"
+
+if [[ -n "$SESSION" ]]; then
+    ENTRY="$ENTRY
+session: $SESSION"
+fi
+
+if [[ -n "$START_COMMIT" ]]; then
+    ENTRY="$ENTRY
+startCommit: $START_COMMIT"
+fi
+
+ENTRY="$ENTRY
+---
+
+$BODY
+
+EOF
+"
+
+# Append to file (create if doesn't exist)
+if [[ -f "$OUTPUT_FILE" ]]; then
+    # Add blank line separator before new entry
+    echo "" >> "$OUTPUT_FILE"
+fi
+
+echo "$ENTRY" >> "$OUTPUT_FILE"
+
+echo "Entry added to $OUTPUT_FILE" >&2
