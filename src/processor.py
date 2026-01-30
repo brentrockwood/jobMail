@@ -64,6 +64,15 @@ def extract_email_parts(message: dict[str, Any]) -> tuple[str, str, str]:
                     body_text = re.sub(r"<[^>]+>", "", html_text)
                     break
 
+    # Truncate body to prevent token limit errors
+    # With system/user message split: 10k chars (~7k tokens worst case)
+    # System message: ~300 tokens, Response: ~500 tokens
+    # Total: ~7.8k tokens, safely under gpt-4's 8k context limit
+    max_body_chars = 10000
+    if len(body_text) > max_body_chars:
+        logger.warning(f"Email body truncated from {len(body_text)} to {max_body_chars} characters")
+        body_text = body_text[:max_body_chars] + "\n\n[... truncated ...]"
+
     return subject, from_email, body_text
 
 

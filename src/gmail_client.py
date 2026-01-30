@@ -2,7 +2,6 @@
 
 import logging
 import pickle
-from pathlib import Path
 from typing import Any
 
 from google.auth.transport.requests import Request
