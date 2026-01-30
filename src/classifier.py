@@ -9,6 +9,12 @@ from typing import Any
 
 import anthropic
 from openai import OpenAI
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from src.config import Config
 
@@ -188,8 +194,14 @@ class OpenAIClassifier(EmailClassifier):
         self.client = OpenAI(api_key=config.openai_api_key)
         self.model = config.openai_model
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception,)),
+        reraise=True,
+    )
     def classify(self, subject: str, body: str) -> ClassificationResult:
-        """Classify email using OpenAI."""
+        """Classify email using OpenAI with automatic retry on failures."""
         prompt = CLASSIFICATION_PROMPT.format(subject=subject, body=body)
 
         logger.debug(f"Classifying with OpenAI model: {self.model}")
@@ -208,7 +220,7 @@ class OpenAIClassifier(EmailClassifier):
             return self._parse_classification_response(content, "openai", self.model)
 
         except Exception as e:
-            logger.error(f"OpenAI classification failed: {e}")
+            logger.warning(f"OpenAI classification attempt failed: {e}")
             raise
 
 
@@ -223,8 +235,14 @@ class AnthropicClassifier(EmailClassifier):
         self.client = anthropic.Anthropic(api_key=config.anthropic_api_key)
         self.model = config.anthropic_model
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception,)),
+        reraise=True,
+    )
     def classify(self, subject: str, body: str) -> ClassificationResult:
-        """Classify email using Anthropic Claude."""
+        """Classify email using Anthropic Claude with automatic retry on failures."""
         prompt = CLASSIFICATION_PROMPT.format(subject=subject, body=body)
 
         logger.debug(f"Classifying with Anthropic model: {self.model}")
@@ -243,7 +261,7 @@ class AnthropicClassifier(EmailClassifier):
             return self._parse_classification_response(content, "anthropic", self.model)
 
         except Exception as e:
-            logger.error(f"Anthropic classification failed: {e}")
+            logger.warning(f"Anthropic classification attempt failed: {e}")
             raise
 
 
@@ -258,8 +276,14 @@ class OllamaClassifier(EmailClassifier):
         )
         self.model = config.ollama_model
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception,)),
+        reraise=True,
+    )
     def classify(self, subject: str, body: str) -> ClassificationResult:
-        """Classify email using Ollama."""
+        """Classify email using Ollama with automatic retry on failures."""
         prompt = CLASSIFICATION_PROMPT.format(subject=subject, body=body)
 
         logger.debug(f"Classifying with Ollama model: {self.model}")
@@ -278,7 +302,7 @@ class OllamaClassifier(EmailClassifier):
             return self._parse_classification_response(content, "ollama", self.model)
 
         except Exception as e:
-            logger.error(f"Ollama classification failed: {e}")
+            logger.warning(f"Ollama classification attempt failed: {e}")
             raise
 
 

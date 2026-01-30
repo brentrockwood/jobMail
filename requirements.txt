@@ -10,6 +10,9 @@ anthropic>=0.18.0,<1.0.0
 # Configuration
 python-dotenv>=1.0.0,<2.0.0
 
+# Resilience (retry logic)
+tenacity>=8.0.0,<9.0.0
+
 # Testing
 pytest>=8.0.0,<9.0.0
 pytest-mock>=3.12.0,<4.0.0

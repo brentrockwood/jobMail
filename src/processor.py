@@ -78,7 +78,7 @@ class EmailProcessor:
             config: Application configuration
         """
         self.config = config
-        self.gmail_client = GmailClient(config.gmail_credentials_file, config.gmail_token_file)
+        self.gmail_client = GmailClient(config)
         self.storage = EmailStorage(config.database_path)
         self.classifier = create_classifier(config)
 
