@@ -135,14 +135,30 @@ Future versions may include features such as:
 - [ ] Efficient historical processing
 
 ### Phase 4: Production Readiness
-- [ ] Error handling & retry logic (exponential backoff)
-- [ ] Rate limiting
-- [ ] Dry-run mode
-- [ ] Configurable batch size
-- [ ] Integration tests
-- [ ] Security scanning (Trufflehog + scripted grep)
-- [ ] Documentation (setup, usage, troubleshooting)
-- [ ] Deployment guide (cron setup for unattended operation)
+- [x] Error handling & retry logic (exponential backoff)
+- [x] Rate limiting
+- [x] Dry-run mode
+- [x] Configurable batch size
+- [x] Integration tests
+- [x] Security scanning (Trufflehog + scripted grep)
+- [x] Documentation (setup, usage, troubleshooting)
+- [x] Deployment guide (cron setup for unattended operation)
+
+### Phase 5: Documentation Enhancement
+- [ ] Expand Configuration Options section in README.md
+- [ ] Document all AI providers (OpenAI, Anthropic, Ollama) with setup details
+- [ ] Add Ollama-specific configuration (base URL, model examples)
+- [ ] Enhance secrets.env.example with comprehensive inline comments
+- [ ] Add recommended ranges for configuration values (confidence threshold, batch size)
+
+### Phase 6: Gemini Support
+- [ ] Add Google Gemini as fourth AI provider option
+- [ ] Use OpenAI-compatible API endpoint for consistency
+- [ ] Add GEMINI_API_KEY and GEMINI_MODEL configuration
+- [ ] Update classifier factory to support gemini provider
+- [ ] Add Gemini setup instructions to README
+- [ ] Test with real Gemini API key
+- [ ] Update tests to cover Gemini classifier
 
 ## Decisions & Rationale
 

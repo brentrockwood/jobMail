@@ -168,19 +168,87 @@ python main.py reset --force
 
 ### Configuration Options
 
-All configuration is via environment variables in `secrets.env`:
+All configuration is via environment variables in `secrets.env`. See `secrets.env.example` for comprehensive documentation with all options.
+
+#### AI Provider Selection
+
+JobMail supports three AI providers. Choose the one that best fits your needs:
+
+| Provider | Pros | Cons | Setup |
+|----------|------|------|-------|
+| **OpenAI** | High accuracy, fast responses | Costs per API call | Get API key from [OpenAI Platform](https://platform.openai.com/api-keys) |
+| **Anthropic** | Excellent quality, privacy-focused | Costs per API call | Get API key from [Anthropic Console](https://console.anthropic.com/) |
+| **Ollama** | Free, runs locally, data stays private | Requires local installation, slower | Install from [Ollama.ai](https://ollama.ai) |
+
+**OpenAI Configuration:**
+```bash
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-proj-...
+OPENAI_MODEL=gpt-4  # Options: gpt-4, gpt-4-turbo, gpt-3.5-turbo
+```
+
+**Anthropic Configuration:**
+```bash
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-sonnet-4-5-20250929  # Latest Claude model
+```
+
+**Ollama Configuration:**
+
+Ollama runs AI models locally on your machine. Best for privacy and cost control.
+
+```bash
+# 1. Install Ollama from https://ollama.ai
+# 2. Pull a model: ollama pull llama2
+# 3. Configure JobMail:
+
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434/v1  # Note: /v1 path is required
+OLLAMA_MODEL=llama2  # or qwen2.5:72b-instruct-q4_K_M, mistral, phi3, etc.
+```
+
+Popular Ollama models:
+- `llama2` - General purpose, 7B parameters
+- `qwen2.5:72b-instruct-q4_K_M` - High quality (requires 48GB+ RAM)
+- `mistral` - Fast and efficient
+- `phi3` - Small and fast (good for low-resource systems)
+
+**Remote Ollama Setup:**
+
+If running Ollama on a different machine:
+```bash
+OLLAMA_BASE_URL=http://your-server:11434/v1
+```
+
+#### Core Configuration
+
+| Variable | Default | Range/Options | Description |
+|----------|---------|---------------|-------------|
+| `AI_PROVIDER` | `openai` | `openai`, `anthropic`, `ollama` | Which AI provider to use |
+| `CONFIDENCE_THRESHOLD` | `0.8` | `0.75`-`0.85` recommended | Minimum confidence for classification. Lower = more emails labeled (may include false positives). Higher = fewer emails labeled (only high confidence). |
+| `BATCH_SIZE` | `20` | `20`-`50` regular runs, `100`-`500` bulk processing | Number of emails to process per run. Larger batches may hit API rate limits. |
+| `DRY_RUN` | `false` | `true`, `false` | If `true`, log actions without making changes to Gmail. Use for testing. |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` | Logging verbosity. Use `INFO` for production, `DEBUG` for troubleshooting. |
+
+#### Gmail Labels
+
+Customize label names applied to classified emails:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AI_PROVIDER` | `openai` | AI provider: `openai`, `anthropic`, or `ollama` |
-| `CONFIDENCE_THRESHOLD` | `0.8` | Minimum confidence for classification (0.0-1.0) |
-| `BATCH_SIZE` | `20` | Number of emails to process per run |
-| `DRY_RUN` | `false` | If `true`, log actions without making changes |
-| `LOG_LEVEL` | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `LABEL_ACKNOWLEDGED` | `Acknowledged` | Label name for acknowledgements |
-| `LABEL_REJECTED` | `Rejected` | Label name for rejections |
-| `LABEL_FOLLOWUP` | `FollowUp` | Label name for follow-ups |
-| `LABEL_JOBBOARD` | `JobBoard` | Label name for job board notifications |
+| `LABEL_ACKNOWLEDGED` | `Acknowledged` | Application acknowledgements (auto-archived) |
+| `LABEL_REJECTED` | `Rejected` | Rejections (auto-archived) |
+| `LABEL_FOLLOWUP` | `FollowUp` | Emails requiring action (NOT archived) |
+| `LABEL_JOBBOARD` | `JobBoard` | Job board notifications (auto-archived) |
+
+#### Advanced Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GMAIL_CREDENTIALS_FILE` | `credentials.json` | Path to OAuth2 credentials from Google Cloud |
+| `GMAIL_TOKEN_FILE` | `token.json` | Path where OAuth2 token is stored (auto-generated) |
+| `DATABASE_PATH` | `jobmail.db` | SQLite database path for tracking processed emails |
 
 ### Automated Runs
 
