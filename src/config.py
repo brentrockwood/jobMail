@@ -59,13 +59,11 @@ class Config:
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4"),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-            anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
             ollama_model=os.getenv("OLLAMA_MODEL", "llama2"),
             # Gmail
-            gmail_credentials_file=Path(
-                os.getenv("GMAIL_CREDENTIALS_FILE", "credentials.json")
-            ),
+            gmail_credentials_file=Path(os.getenv("GMAIL_CREDENTIALS_FILE", "credentials.json")),
             gmail_token_file=Path(os.getenv("GMAIL_TOKEN_FILE", "token.json")),
             # Classification
             confidence_threshold=float(os.getenv("CONFIDENCE_THRESHOLD", "0.8")),
@@ -88,9 +86,7 @@ class Config:
         if self.ai_provider == "openai" and not self.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER is 'openai'")
         if self.ai_provider == "anthropic" and not self.anthropic_api_key:
-            raise ValueError(
-                "ANTHROPIC_API_KEY is required when AI_PROVIDER is 'anthropic'"
-            )
+            raise ValueError("ANTHROPIC_API_KEY is required when AI_PROVIDER is 'anthropic'")
         if self.ai_provider not in ["openai", "anthropic", "ollama"]:
             raise ValueError(
                 f"Invalid AI_PROVIDER: {self.ai_provider}. "
