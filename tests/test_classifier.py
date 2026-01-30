@@ -10,6 +10,7 @@ from src.classifier import (
     ClassificationCategory,
     ClassificationResult,
     EmailClassifier,
+    GeminiClassifier,
     OllamaClassifier,
     OpenAIClassifier,
     create_classifier,
@@ -27,6 +28,8 @@ def mock_config() -> Config:
     config.anthropic_model = "claude-3-5-sonnet-20241022"
     config.ollama_base_url = "http://localhost:11434"
     config.ollama_model = "llama2"
+    config.gemini_api_key = "test-gemini-key"
+    config.gemini_model = "gemini-2.0-flash-exp"
     config.ai_provider = "openai"
     return config
 
@@ -296,6 +299,48 @@ class TestOllamaClassifier:
         assert call_args.kwargs["model"] == "llama2"
 
 
+class TestGeminiClassifier:
+    """Test Gemini classifier."""
+
+    def test_requires_api_key(self, mock_config: Config) -> None:
+        """Test that Gemini classifier requires API key."""
+        mock_config.gemini_api_key = None
+        with pytest.raises(ValueError, match="Gemini API key not configured"):
+            GeminiClassifier(mock_config)
+
+    @patch("src.classifier.OpenAI")
+    def test_classify_success(self, mock_openai_class: Mock, mock_config: Config) -> None:
+        """Test successful classification with Gemini."""
+        # Mock Gemini response (uses OpenAI-compatible API)
+        mock_client = Mock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = json.dumps(
+            {
+                "category": "jobboard",
+                "confidence": 0.97,
+                "reasoning": "Job board notification email",
+            }
+        )
+        mock_client.chat.completions.create.return_value = mock_response
+
+        classifier = GeminiClassifier(mock_config)
+        result = classifier.classify("New jobs for you", "We found 5 new jobs matching your search")
+
+        assert result.category == ClassificationCategory.JOBBOARD
+        assert result.confidence == 0.97
+        assert result.provider == "gemini"
+        assert result.model == "gemini-2.0-flash-exp"
+
+        # Verify API call
+        mock_client.chat.completions.create.assert_called_once()
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs["model"] == "gemini-2.0-flash-exp"
+        assert call_args.kwargs["temperature"] == 0.0
+
+
 class TestCreateClassifier:
     """Test classifier factory function."""
 
@@ -316,6 +361,12 @@ class TestCreateClassifier:
         mock_config.ai_provider = "ollama"
         classifier = create_classifier(mock_config)
         assert isinstance(classifier, OllamaClassifier)
+
+    def test_create_gemini_classifier(self, mock_config: Config) -> None:
+        """Test creating Gemini classifier."""
+        mock_config.ai_provider = "gemini"
+        classifier = create_classifier(mock_config)
+        assert isinstance(classifier, GeminiClassifier)
 
     def test_invalid_provider_raises_error(self, mock_config: Config) -> None:
         """Test that invalid provider raises ValueError."""
