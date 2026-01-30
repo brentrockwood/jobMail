@@ -67,9 +67,7 @@ class GmailClient:
                 self.creds.refresh(Request())
             else:
                 logger.info("Starting OAuth2 flow (user authorization required)")
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    str(self.credentials_file), SCOPES
-                )
+                flow = InstalledAppFlow.from_client_secrets_file(str(self.credentials_file), SCOPES)
                 # Use run_local_server for initial auth
                 # For truly headless operation, token must be generated first
                 # on a machine with browser access
@@ -221,9 +219,7 @@ class GmailClient:
 
         logger.debug(f"Creating label: {name}")
         try:
-            result = (
-                self.service.users().labels().create(userId="me", body=label_object).execute()
-            )
+            result = self.service.users().labels().create(userId="me", body=label_object).execute()
             logger.info(f"Created label: {name} (id: {result['id']})")
             return result
         except Exception as e:

@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Any
 
 import anthropic
-import openai
 from openai import OpenAI
 
 from src.config import Config
@@ -153,17 +152,13 @@ class EmailClassifier(ABC):
             try:
                 category = ClassificationCategory(data["category"])
             except ValueError:
-                logger.warning(
-                    f"Invalid category '{data['category']}', defaulting to unknown"
-                )
+                logger.warning(f"Invalid category '{data['category']}', defaulting to unknown")
                 category = ClassificationCategory.UNKNOWN
 
             # Validate confidence
             confidence = float(data["confidence"])
             if not 0.0 <= confidence <= 1.0:
-                logger.warning(
-                    f"Confidence {confidence} out of range, clamping to [0,1]"
-                )
+                logger.warning(f"Confidence {confidence} out of range, clamping to [0,1]")
                 confidence = max(0.0, min(1.0, confidence))
 
             return ClassificationResult(
@@ -176,7 +171,7 @@ class EmailClassifier(ABC):
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}\nResponse: {response_text}")
-            raise ValueError(f"Invalid JSON response from {provider}: {e}")
+            raise ValueError(f"Invalid JSON response from {provider}: {e}") from e
         except Exception as e:
             logger.error(f"Error parsing classification response: {e}")
             raise
@@ -310,6 +305,5 @@ def create_classifier(config: Config) -> EmailClassifier:
         return OllamaClassifier(config)
     else:
         raise ValueError(
-            f"Invalid AI provider: {provider}. "
-            "Must be 'openai', 'anthropic', or 'ollama'"
+            f"Invalid AI provider: {provider}. " "Must be 'openai', 'anthropic', or 'ollama'"
         )

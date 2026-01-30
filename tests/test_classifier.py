@@ -60,12 +60,11 @@ class TestEmailClassifierParsing:
 
     def test_parse_valid_json(self, mock_config: Config) -> None:
         """Test parsing valid JSON response."""
+
         # Create a concrete subclass for testing
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
-                return ClassificationResult(
-                    ClassificationCategory.UNKNOWN, 0.5, "test", "test"
-                )
+                return ClassificationResult(ClassificationCategory.UNKNOWN, 0.5, "test", "test")
 
         classifier = TestClassifier(mock_config)
 
@@ -90,9 +89,7 @@ class TestEmailClassifierParsing:
 
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
-                return ClassificationResult(
-                    ClassificationCategory.UNKNOWN, 0.5, "test", "test"
-                )
+                return ClassificationResult(ClassificationCategory.UNKNOWN, 0.5, "test", "test")
 
         classifier = TestClassifier(mock_config)
 
@@ -114,9 +111,7 @@ class TestEmailClassifierParsing:
 
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
-                return ClassificationResult(
-                    ClassificationCategory.UNKNOWN, 0.5, "test", "test"
-                )
+                return ClassificationResult(ClassificationCategory.UNKNOWN, 0.5, "test", "test")
 
         classifier = TestClassifier(mock_config)
 
@@ -133,9 +128,7 @@ class TestEmailClassifierParsing:
 
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
-                return ClassificationResult(
-                    ClassificationCategory.UNKNOWN, 0.5, "test", "test"
-                )
+                return ClassificationResult(ClassificationCategory.UNKNOWN, 0.5, "test", "test")
 
         classifier = TestClassifier(mock_config)
 
@@ -149,16 +142,12 @@ class TestEmailClassifierParsing:
         result = classifier._parse_classification_response(response, "test", "model-1")
         assert result.confidence == 0.0
 
-    def test_parse_missing_required_fields_raises_error(
-        self, mock_config: Config
-    ) -> None:
+    def test_parse_missing_required_fields_raises_error(self, mock_config: Config) -> None:
         """Test that missing required fields raises ValueError."""
 
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
-                return ClassificationResult(
-                    ClassificationCategory.UNKNOWN, 0.5, "test", "test"
-                )
+                return ClassificationResult(ClassificationCategory.UNKNOWN, 0.5, "test", "test")
 
         classifier = TestClassifier(mock_config)
 
@@ -177,9 +166,7 @@ class TestEmailClassifierParsing:
 
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
-                return ClassificationResult(
-                    ClassificationCategory.UNKNOWN, 0.5, "test", "test"
-                )
+                return ClassificationResult(ClassificationCategory.UNKNOWN, 0.5, "test", "test")
 
         classifier = TestClassifier(mock_config)
 
@@ -240,9 +227,7 @@ class TestAnthropicClassifier:
             AnthropicClassifier(mock_config)
 
     @patch("src.classifier.anthropic.Anthropic")
-    def test_classify_success(
-        self, mock_anthropic_class: Mock, mock_config: Config
-    ) -> None:
+    def test_classify_success(self, mock_anthropic_class: Mock, mock_config: Config) -> None:
         """Test successful classification with Anthropic."""
         # Mock Anthropic response
         mock_client = Mock()
@@ -298,9 +283,7 @@ class TestOllamaClassifier:
         mock_client.chat.completions.create.return_value = mock_response
 
         classifier = OllamaClassifier(mock_config)
-        result = classifier.classify(
-            "Interview Request", "Are you available for an interview?"
-        )
+        result = classifier.classify("Interview Request", "Are you available for an interview?")
 
         assert result.category == ClassificationCategory.FOLLOWUP
         assert result.confidence == 0.95
