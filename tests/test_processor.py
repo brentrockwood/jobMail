@@ -3,7 +3,7 @@
 import base64
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -17,9 +17,9 @@ def temp_db():
     """Create a temporary database for testing."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = Path(f.name)
-    
+
     yield db_path
-    
+
     # Cleanup
     if db_path.exists():
         db_path.unlink()
@@ -49,7 +49,7 @@ def test_extract_email_parts_plain_text():
     """Test extracting parts from a plain text email."""
     body_text = "This is the email body"
     encoded_body = base64.urlsafe_b64encode(body_text.encode()).decode()
-    
+
     message = {
         "payload": {
             "headers": [
@@ -62,7 +62,7 @@ def test_extract_email_parts_plain_text():
             },
         }
     }
-    
+
     subject, from_email, body = extract_email_parts(message)
     assert subject == "Test Subject"
     assert from_email == "sender@example.com"
@@ -73,10 +73,10 @@ def test_extract_email_parts_multipart():
     """Test extracting parts from a multipart email."""
     plain_text = "This is plain text"
     html_text = "<html><body>This is HTML</body></html>"
-    
+
     encoded_plain = base64.urlsafe_b64encode(plain_text.encode()).decode()
     encoded_html = base64.urlsafe_b64encode(html_text.encode()).decode()
-    
+
     message = {
         "payload": {
             "headers": [
@@ -95,7 +95,7 @@ def test_extract_email_parts_multipart():
             ],
         }
     }
-    
+
     subject, from_email, body = extract_email_parts(message)
     assert subject == "Multipart Test"
     assert from_email == "test@example.com"
@@ -107,7 +107,7 @@ def test_extract_email_parts_html_only():
     """Test extracting parts from HTML-only email."""
     html_text = "<html><body><p>Hello World</p></body></html>"
     encoded_html = base64.urlsafe_b64encode(html_text.encode()).decode()
-    
+
     message = {
         "payload": {
             "headers": [
@@ -122,7 +122,7 @@ def test_extract_email_parts_html_only():
             ],
         }
     }
-    
+
     subject, from_email, body = extract_email_parts(message)
     assert subject == "HTML Test"
     # HTML tags should be stripped
@@ -137,7 +137,7 @@ def test_extract_email_parts_empty():
             "headers": [],
         }
     }
-    
+
     subject, from_email, body = extract_email_parts(message)
     assert subject == ""
     assert from_email == ""
@@ -149,7 +149,7 @@ def test_extract_email_parts_empty():
 def test_processor_init(mock_create_classifier, mock_gmail_client, mock_config):
     """Test processor initialization."""
     processor = EmailProcessor(mock_config)
-    
+
     assert processor.config == mock_config
     assert processor.gmail_client is not None
     assert processor.storage is not None
@@ -162,9 +162,9 @@ def test_processor_authenticate(mock_create_classifier, mock_gmail_client, mock_
     """Test processor authentication."""
     processor = EmailProcessor(mock_config)
     mock_gmail_instance = mock_gmail_client.return_value
-    
+
     processor.authenticate()
-    
+
     mock_gmail_instance.authenticate.assert_called_once()
 
 
@@ -173,7 +173,7 @@ def test_processor_authenticate(mock_create_classifier, mock_gmail_client, mock_
 def test_process_message_already_processed(mock_create_classifier, mock_gmail_client, mock_config):
     """Test processing a message that's already been processed."""
     processor = EmailProcessor(mock_config)
-    
+
     # Mark message as already processed
     processor.storage.record_processed(
         message_id="msg123",
@@ -184,10 +184,10 @@ def test_process_message_already_processed(mock_create_classifier, mock_gmail_cl
         provider="openai",
         model="gpt-4",
     )
-    
+
     # Try to process again
     result = processor.process_message("msg123")
-    
+
     # Should return False (skipped)
     assert result is False
     # Should not call Gmail API
@@ -201,11 +201,11 @@ def test_process_message_acknowledgement(mock_create_classifier, mock_gmail_clie
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_classifier_instance = mock_create_classifier.return_value
-    
+
     # Mock Gmail response
     body_text = "Thank you for your application"
     encoded_body = base64.urlsafe_b64encode(body_text.encode()).decode()
-    
+
     mock_gmail_instance.get_message.return_value = {
         "id": "msg123",
         "payload": {
@@ -217,7 +217,7 @@ def test_process_message_acknowledgement(mock_create_classifier, mock_gmail_clie
             "body": {"data": encoded_body},
         },
     }
-    
+
     # Mock classification result
     mock_classifier_instance.classify.return_value = ClassificationResult(
         category=ClassificationCategory.ACKNOWLEDGEMENT,
@@ -226,11 +226,11 @@ def test_process_message_acknowledgement(mock_create_classifier, mock_gmail_clie
         model="gpt-4",
         reasoning="Clear acknowledgement",
     )
-    
+
     # Process message
     processor = EmailProcessor(mock_config)
     result = processor.process_message("msg123")
-    
+
     # Verify
     assert result is True
     mock_gmail_instance.get_message.assert_called_once_with("msg123")
@@ -247,11 +247,11 @@ def test_process_message_rejection(mock_create_classifier, mock_gmail_client, mo
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_classifier_instance = mock_create_classifier.return_value
-    
+
     # Mock Gmail response
     body_text = "We regret to inform you"
     encoded_body = base64.urlsafe_b64encode(body_text.encode()).decode()
-    
+
     mock_gmail_instance.get_message.return_value = {
         "id": "msg456",
         "payload": {
@@ -263,7 +263,7 @@ def test_process_message_rejection(mock_create_classifier, mock_gmail_client, mo
             "body": {"data": encoded_body},
         },
     }
-    
+
     # Mock classification result
     mock_classifier_instance.classify.return_value = ClassificationResult(
         category=ClassificationCategory.REJECTION,
@@ -272,11 +272,11 @@ def test_process_message_rejection(mock_create_classifier, mock_gmail_client, mo
         model="claude-3",
         reasoning="Clear rejection",
     )
-    
+
     # Process message
     processor = EmailProcessor(mock_config)
     result = processor.process_message("msg456")
-    
+
     # Verify
     assert result is True
     mock_gmail_instance.apply_label.assert_called_once_with("msg456", "Rejected")
@@ -290,11 +290,11 @@ def test_process_message_followup(mock_create_classifier, mock_gmail_client, moc
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_classifier_instance = mock_create_classifier.return_value
-    
+
     # Mock Gmail response
     body_text = "Please complete your screening"
     encoded_body = base64.urlsafe_b64encode(body_text.encode()).decode()
-    
+
     mock_gmail_instance.get_message.return_value = {
         "id": "msg789",
         "payload": {
@@ -306,7 +306,7 @@ def test_process_message_followup(mock_create_classifier, mock_gmail_client, moc
             "body": {"data": encoded_body},
         },
     }
-    
+
     # Mock classification result
     mock_classifier_instance.classify.return_value = ClassificationResult(
         category=ClassificationCategory.FOLLOWUP,
@@ -315,11 +315,11 @@ def test_process_message_followup(mock_create_classifier, mock_gmail_client, moc
         model="gpt-4",
         reasoning="Action required",
     )
-    
+
     # Process message
     processor = EmailProcessor(mock_config)
     result = processor.process_message("msg789")
-    
+
     # Verify
     assert result is True
     mock_gmail_instance.apply_label.assert_called_once_with("msg789", "FollowUp")
@@ -334,11 +334,11 @@ def test_process_message_low_confidence(mock_create_classifier, mock_gmail_clien
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_classifier_instance = mock_create_classifier.return_value
-    
+
     # Mock Gmail response
     body_text = "Ambiguous content"
     encoded_body = base64.urlsafe_b64encode(body_text.encode()).decode()
-    
+
     mock_gmail_instance.get_message.return_value = {
         "id": "msg999",
         "payload": {
@@ -350,7 +350,7 @@ def test_process_message_low_confidence(mock_create_classifier, mock_gmail_clien
             "body": {"data": encoded_body},
         },
     }
-    
+
     # Mock classification result with low confidence
     mock_classifier_instance.classify.return_value = ClassificationResult(
         category=ClassificationCategory.ACKNOWLEDGEMENT,
@@ -359,11 +359,11 @@ def test_process_message_low_confidence(mock_create_classifier, mock_gmail_clien
         model="gpt-4",
         reasoning="Uncertain",
     )
-    
+
     # Process message
     processor = EmailProcessor(mock_config)
     result = processor.process_message("msg999")
-    
+
     # Verify - should record but not apply label/archive
     assert result is True
     mock_gmail_instance.apply_label.assert_not_called()
@@ -377,15 +377,15 @@ def test_process_message_dry_run(mock_create_classifier, mock_gmail_client, mock
     """Test processing in dry-run mode."""
     # Enable dry-run
     mock_config.dry_run = True
-    
+
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_classifier_instance = mock_create_classifier.return_value
-    
+
     # Mock Gmail response
     body_text = "Test email"
     encoded_body = base64.urlsafe_b64encode(body_text.encode()).decode()
-    
+
     mock_gmail_instance.get_message.return_value = {
         "id": "msg111",
         "payload": {
@@ -397,7 +397,7 @@ def test_process_message_dry_run(mock_create_classifier, mock_gmail_client, mock
             "body": {"data": encoded_body},
         },
     }
-    
+
     # Mock classification result
     mock_classifier_instance.classify.return_value = ClassificationResult(
         category=ClassificationCategory.ACKNOWLEDGEMENT,
@@ -405,11 +405,11 @@ def test_process_message_dry_run(mock_create_classifier, mock_gmail_client, mock
         provider="openai",
         model="gpt-4",
     )
-    
+
     # Process message
     processor = EmailProcessor(mock_config)
     result = processor.process_message("msg111")
-    
+
     # Verify - should NOT call Gmail modification APIs
     assert result is True
     mock_gmail_instance.apply_label.assert_not_called()
@@ -425,14 +425,14 @@ def test_process_inbox(mock_create_classifier, mock_gmail_client, mock_config):
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_classifier_instance = mock_create_classifier.return_value
-    
+
     # Mock list_messages response
     mock_gmail_instance.list_messages.return_value = [
         {"id": "msg1"},
         {"id": "msg2"},
         {"id": "msg3"},
     ]
-    
+
     # Mock get_message responses
     def get_message_side_effect(msg_id):
         body_text = f"Email {msg_id}"
@@ -448,9 +448,9 @@ def test_process_inbox(mock_create_classifier, mock_gmail_client, mock_config):
                 "body": {"data": encoded_body},
             },
         }
-    
+
     mock_gmail_instance.get_message.side_effect = get_message_side_effect
-    
+
     # Mock classifier
     mock_classifier_instance.classify.return_value = ClassificationResult(
         category=ClassificationCategory.ACKNOWLEDGEMENT,
@@ -458,11 +458,11 @@ def test_process_inbox(mock_create_classifier, mock_gmail_client, mock_config):
         provider="openai",
         model="gpt-4",
     )
-    
+
     # Process inbox
     processor = EmailProcessor(mock_config)
     stats = processor.process_inbox(query="in:inbox", max_messages=10)
-    
+
     # Verify
     assert stats["found"] == 3
     assert stats["processed"] == 3
@@ -477,11 +477,11 @@ def test_process_inbox_empty(mock_create_classifier, mock_gmail_client, mock_con
     # Setup mocks
     mock_gmail_instance = mock_gmail_client.return_value
     mock_gmail_instance.list_messages.return_value = []
-    
+
     # Process inbox
     processor = EmailProcessor(mock_config)
     stats = processor.process_inbox()
-    
+
     # Verify
     assert stats["found"] == 0
     assert stats["processed"] == 0
@@ -493,7 +493,7 @@ def test_process_inbox_empty(mock_create_classifier, mock_gmail_client, mock_con
 def test_get_stats(mock_create_classifier, mock_gmail_client, mock_config):
     """Test getting processing statistics."""
     processor = EmailProcessor(mock_config)
-    
+
     # Add some processed emails
     processor.storage.record_processed(
         message_id="msg1",
@@ -504,7 +504,7 @@ def test_get_stats(mock_create_classifier, mock_gmail_client, mock_config):
         provider="openai",
         model="gpt-4",
     )
-    
+
     processor.storage.record_processed(
         message_id="msg2",
         subject="Test 2",
@@ -514,10 +514,10 @@ def test_get_stats(mock_create_classifier, mock_gmail_client, mock_config):
         provider="openai",
         model="gpt-4",
     )
-    
+
     # Get stats
     stats = processor.get_stats()
-    
+
     # Verify
     assert stats["total"] == 2
     assert stats["acknowledgement"] == 1

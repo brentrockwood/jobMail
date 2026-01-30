@@ -14,9 +14,9 @@ def temp_db():
     """Create a temporary database for testing."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = Path(f.name)
-    
+
     yield db_path
-    
+
     # Cleanup
     if db_path.exists():
         db_path.unlink()
@@ -32,10 +32,10 @@ def test_init_creates_database(temp_db):
     """Test that initialization creates the database and schema."""
     # Initialize storage (temp_db is created by fixture)
     storage = EmailStorage(temp_db)
-    
+
     # Database should exist
     assert temp_db.exists()
-    
+
     # Should be able to query the table
     stats = storage.get_stats()
     assert stats["total"] == 0
@@ -49,10 +49,10 @@ def test_is_processed_empty_database(storage):
 def test_record_and_check_processed(storage):
     """Test recording a processed email and checking it."""
     message_id = "msg123"
-    
+
     # Initially not processed
     assert not storage.is_processed(message_id)
-    
+
     # Record as processed
     storage.record_processed(
         message_id=message_id,
@@ -66,7 +66,7 @@ def test_record_and_check_processed(storage):
         label_applied="Acknowledged",
         archived=True,
     )
-    
+
     # Now should be processed
     assert storage.is_processed(message_id)
 
@@ -74,7 +74,7 @@ def test_record_and_check_processed(storage):
 def test_record_processed_minimal(storage):
     """Test recording with minimal required fields."""
     message_id = "msg456"
-    
+
     storage.record_processed(
         message_id=message_id,
         subject="Test",
@@ -84,7 +84,7 @@ def test_record_processed_minimal(storage):
         provider="anthropic",
         model="claude-3",
     )
-    
+
     assert storage.is_processed(message_id)
 
 
@@ -106,7 +106,7 @@ def test_get_stats_with_data(storage):
         provider="openai",
         model="gpt-4",
     )
-    
+
     storage.record_processed(
         message_id="msg2",
         subject="Test 2",
@@ -116,7 +116,7 @@ def test_get_stats_with_data(storage):
         provider="openai",
         model="gpt-4",
     )
-    
+
     storage.record_processed(
         message_id="msg3",
         subject="Test 3",
@@ -126,7 +126,7 @@ def test_get_stats_with_data(storage):
         provider="anthropic",
         model="claude-3",
     )
-    
+
     stats = storage.get_stats()
     assert stats["total"] == 3
     assert stats["acknowledgement"] == 2
@@ -152,11 +152,11 @@ def test_get_recent_processed(storage):
             provider="openai",
             model="gpt-4",
         )
-    
+
     # Get recent (default limit 10)
     recent = storage.get_recent_processed()
     assert len(recent) == 5
-    
+
     # Should be in reverse chronological order (most recent first)
     assert recent[0]["message_id"] == "msg4"
     assert recent[-1]["message_id"] == "msg0"
@@ -175,7 +175,7 @@ def test_get_recent_processed_with_limit(storage):
             provider="openai",
             model="gpt-4",
         )
-    
+
     # Get with limit
     recent = storage.get_recent_processed(limit=3)
     assert len(recent) == 3
@@ -194,7 +194,7 @@ def test_get_by_classification(storage):
         provider="openai",
         model="gpt-4",
     )
-    
+
     storage.record_processed(
         message_id="rej1",
         subject="Rejection 1",
@@ -204,7 +204,7 @@ def test_get_by_classification(storage):
         provider="openai",
         model="gpt-4",
     )
-    
+
     storage.record_processed(
         message_id="ack2",
         subject="Acknowledgement 2",
@@ -214,12 +214,12 @@ def test_get_by_classification(storage):
         provider="anthropic",
         model="claude-3",
     )
-    
+
     # Get acknowledgements
     acks = storage.get_by_classification(ClassificationCategory.ACKNOWLEDGEMENT)
     assert len(acks) == 2
     assert all(e["classification"] == "acknowledgement" for e in acks)
-    
+
     # Get rejections
     rejs = storage.get_by_classification(ClassificationCategory.REJECTION)
     assert len(rejs) == 1
@@ -239,7 +239,7 @@ def test_get_by_classification_with_limit(storage):
             provider="openai",
             model="gpt-4",
         )
-    
+
     # Get with limit
     acks = storage.get_by_classification(ClassificationCategory.ACKNOWLEDGEMENT, limit=2)
     assert len(acks) == 2
@@ -258,14 +258,14 @@ def test_clear_all(storage):
             provider="openai",
             model="gpt-4",
         )
-    
+
     # Verify records exist
     assert storage.get_stats()["total"] == 3
-    
+
     # Clear all
     deleted = storage.clear_all()
     assert deleted == 3
-    
+
     # Verify empty
     assert storage.get_stats()["total"] == 0
 
@@ -285,7 +285,7 @@ def test_all_classification_categories(storage):
         ClassificationCategory.JOBBOARD,
         ClassificationCategory.UNKNOWN,
     ]
-    
+
     for i, category in enumerate(categories):
         storage.record_processed(
             message_id=f"msg{i}",
@@ -296,7 +296,7 @@ def test_all_classification_categories(storage):
             provider="openai",
             model="gpt-4",
         )
-    
+
     stats = storage.get_stats()
     assert stats["total"] == 5
     assert stats["acknowledgement"] == 1

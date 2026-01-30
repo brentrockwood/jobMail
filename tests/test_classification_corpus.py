@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from src.classifier import ClassificationCategory, create_classifier
+from src.classifier import create_classifier
 from src.config import Config
 
 
@@ -34,7 +34,7 @@ def load_email_corpus() -> list[dict]:
 
     emails = []
     for filepath in sorted(corpus_dir.glob("email_*.json")):
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             email_data = json.load(f)
             email_data["filename"] = filepath.name
             emails.append(email_data)
@@ -78,10 +78,12 @@ class TestOpenAIClassification:
         results = []
         for email in email_corpus:
             result = classifier.classify(email["subject"], email["body"])
-            results.append({
-                "email": email,
-                "classification": result,
-            })
+            results.append(
+                {
+                    "email": email,
+                    "classification": result,
+                }
+            )
 
             # Print results
             print(f"Email: {email['filename']}")
@@ -103,8 +105,7 @@ class TestOpenAIClassification:
             correct = sum(
                 1
                 for r in results
-                if r["email"].get("expected_classification")
-                == r["classification"].category.value
+                if r["email"].get("expected_classification") == r["classification"].category.value
             )
             accuracy = correct / expected_count * 100
             print(f"Accuracy: {correct}/{expected_count} ({accuracy:.1f}%)")
@@ -135,10 +136,12 @@ class TestAnthropicClassification:
         results = []
         for email in email_corpus:
             result = classifier.classify(email["subject"], email["body"])
-            results.append({
-                "email": email,
-                "classification": result,
-            })
+            results.append(
+                {
+                    "email": email,
+                    "classification": result,
+                }
+            )
 
             # Print results
             print(f"Email: {email['filename']}")
@@ -160,8 +163,7 @@ class TestAnthropicClassification:
             correct = sum(
                 1
                 for r in results
-                if r["email"].get("expected_classification")
-                == r["classification"].category.value
+                if r["email"].get("expected_classification") == r["classification"].category.value
             )
             accuracy = correct / expected_count * 100
             print(f"Accuracy: {correct}/{expected_count} ({accuracy:.1f}%)")
@@ -191,10 +193,12 @@ class TestOllamaClassification:
         for email in email_corpus:
             try:
                 result = classifier.classify(email["subject"], email["body"])
-                results.append({
-                    "email": email,
-                    "classification": result,
-                })
+                results.append(
+                    {
+                        "email": email,
+                        "classification": result,
+                    }
+                )
 
                 # Print results
                 print(f"Email: {email['filename']}")
@@ -219,8 +223,7 @@ class TestOllamaClassification:
             correct = sum(
                 1
                 for r in results
-                if r["email"].get("expected_classification")
-                == r["classification"].category.value
+                if r["email"].get("expected_classification") == r["classification"].category.value
             )
             accuracy = correct / expected_count * 100
             print(f"Accuracy: {correct}/{expected_count} ({accuracy:.1f}%)")
@@ -263,8 +266,14 @@ class TestCrossProviderComparison:
 
             print(f"Email: {email['filename']}")
             print(f"Subject: {email['subject'][:60]}")
-            print(f"OpenAI:    {result_openai.category.value:20s} (conf: {result_openai.confidence:.2f})")
-            print(f"Anthropic: {result_anthropic.category.value:20s} (conf: {result_anthropic.confidence:.2f})")
+            print(
+                f"OpenAI:    {result_openai.category.value:20s} "
+                f"(conf: {result_openai.confidence:.2f})"
+            )
+            print(
+                f"Anthropic: {result_anthropic.category.value:20s} "
+                f"(conf: {result_anthropic.confidence:.2f})"
+            )
             print(f"Agreement: {'✓' if agree else '✗'}")
             print()
 

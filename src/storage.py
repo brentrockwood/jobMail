@@ -2,9 +2,8 @@
 
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from .classifier import ClassificationCategory
 
@@ -46,13 +45,13 @@ class EmailStorage:
             )
             conn.execute(
                 """
-                CREATE INDEX IF NOT EXISTS idx_processed_at 
+                CREATE INDEX IF NOT EXISTS idx_processed_at
                 ON processed_emails(processed_at)
                 """
             )
             conn.execute(
                 """
-                CREATE INDEX IF NOT EXISTS idx_classification 
+                CREATE INDEX IF NOT EXISTS idx_classification
                 ON processed_emails(classification)
                 """
             )
@@ -85,8 +84,8 @@ class EmailStorage:
         confidence: float,
         provider: str,
         model: str,
-        reasoning: Optional[str] = None,
-        label_applied: Optional[str] = None,
+        reasoning: str | None = None,
+        label_applied: str | None = None,
         archived: bool = False,
     ) -> None:
         """
@@ -104,12 +103,12 @@ class EmailStorage:
             label_applied: Optional label that was applied
             archived: Whether the email was archived
         """
-        processed_at = datetime.now(timezone.utc).isoformat()
+        processed_at = datetime.now(UTC).isoformat()
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT INTO processed_emails 
-                (message_id, processed_at, subject, from_email, classification, 
+                INSERT INTO processed_emails
+                (message_id, processed_at, subject, from_email, classification,
                  confidence, provider, model, reasoning, label_applied, archived)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -146,11 +145,11 @@ class EmailStorage:
                 """
             )
             stats = {row[0]: row[1] for row in cursor.fetchall()}
-            
+
             # Add total count
             cursor = conn.execute("SELECT COUNT(*) FROM processed_emails")
             stats["total"] = cursor.fetchone()[0]
-            
+
             return stats
 
     def get_recent_processed(self, limit: int = 10) -> list[dict]:
@@ -167,8 +166,8 @@ class EmailStorage:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
-                SELECT message_id, processed_at, subject, from_email, 
-                       classification, confidence, provider, model, 
+                SELECT message_id, processed_at, subject, from_email,
+                       classification, confidence, provider, model,
                        label_applied, archived
                 FROM processed_emails
                 ORDER BY processed_at DESC
@@ -179,7 +178,7 @@ class EmailStorage:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_by_classification(
-        self, classification: ClassificationCategory, limit: Optional[int] = None
+        self, classification: ClassificationCategory, limit: int | None = None
     ) -> list[dict]:
         """
         Get emails by classification category.
@@ -194,26 +193,26 @@ class EmailStorage:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             query = """
-                SELECT message_id, processed_at, subject, from_email, 
-                       classification, confidence, provider, model, 
+                SELECT message_id, processed_at, subject, from_email,
+                       classification, confidence, provider, model,
                        label_applied, archived
                 FROM processed_emails
                 WHERE classification = ?
                 ORDER BY processed_at DESC
             """
             params: tuple = (classification.value,)
-            
+
             if limit is not None:
                 query += " LIMIT ?"
                 params = (classification.value, limit)
-            
+
             cursor = conn.execute(query, params)
             return [dict(row) for row in cursor.fetchall()]
 
     def clear_all(self) -> int:
         """
         Clear all processed emails from the database.
-        
+
         WARNING: This is destructive and should only be used for testing
         or when explicitly requested.
 

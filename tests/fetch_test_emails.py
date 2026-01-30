@@ -71,12 +71,12 @@ def fetch_and_save_emails(count: int = 10, query: str = "in:inbox") -> None:
 
         # Extract parts
         subject, from_email, body = extract_email_parts(message)
-        
+
         # Truncate very large bodies to avoid rate limits in testing
         # Keep first 5000 chars which is enough for classification
-        MAX_BODY_LENGTH = 5000
-        if len(body) > MAX_BODY_LENGTH:
-            body = body[:MAX_BODY_LENGTH] + "\n\n[... truncated for testing ...]"
+        max_body_length = 5000
+        if len(body) > max_body_length:
+            body = body[:max_body_length] + "\n\n[... truncated for testing ...]"
 
         # Get date header
         headers = message.get("payload", {}).get("headers", [])
