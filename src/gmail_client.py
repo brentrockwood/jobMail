@@ -272,3 +272,37 @@ class GmailClient:
         logger.info(f"Label '{name}' doesn't exist, creating it")
         result = self.create_label(name)
         return result["id"]
+
+    def archive_message(self, message_id: str) -> dict[str, Any]:
+        """
+        Archive a message by removing the INBOX label.
+
+        Args:
+            message_id: Gmail message ID
+
+        Returns:
+            Modified message dict
+
+        Raises:
+            Exception: If API call fails
+        """
+        logger.debug(f"Archiving message: {message_id}")
+        return self.modify_message(message_id, remove_label_ids=["INBOX"])
+
+    def apply_label(self, message_id: str, label_name: str) -> dict[str, Any]:
+        """
+        Apply a label to a message, creating the label if it doesn't exist.
+
+        Args:
+            message_id: Gmail message ID
+            label_name: Name of the label to apply
+
+        Returns:
+            Modified message dict
+
+        Raises:
+            Exception: If API call fails
+        """
+        label_id = self.get_or_create_label(label_name)
+        logger.debug(f"Applying label '{label_name}' to message {message_id}")
+        return self.modify_message(message_id, add_label_ids=[label_id])
