@@ -256,3 +256,82 @@ Phase 2 - Core Classification:
 
 EOF
 
+
+---
+date: 2026-01-29T23:34:37-0500
+hash: KyJfLrX+ZsmNoK/QfiGUk4QYVu4bdCMwZZazoMEJ4hc=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: e0eff0bf7838ccaa8fc942fddadb1216225df379
+---
+
+Phase 2 (Core Classification) - Implementation completed.
+
+**Branch Created:**
+- phase-2-classification (from updated main)
+
+**Files Created:**
+- src/classifier.py (330 lines) - AI-powered email classification
+- tests/test_classifier.py (330 lines) - Comprehensive unit tests
+
+**Implementation Details:**
+
+**Classification System:**
+1. Enum-based categories: ACKNOWLEDGEMENT, REJECTION, FOLLOWUP, JOBBOARD, UNKNOWN
+2. ClassificationResult dataclass tracks:
+   - Category
+   - Confidence score (0.0-1.0)
+   - Provider name (openai/anthropic/ollama)
+   - Model name (gpt-4, claude-3-5-sonnet, etc.)
+   - Reasoning (optional explanation)
+
+**Classification Prompt:**
+- Single prompt works across all AI providers
+- Detailed examples for each category
+- Requests structured JSON output with category, confidence, reasoning
+- Handles job application acknowledgements, rejections, follow-ups, job board notifications
+
+**Classifier Architecture:**
+- Abstract base class EmailClassifier with shared parsing logic
+- Three concrete implementations:
+  1. OpenAIClassifier - Uses OpenAI Chat Completions API
+  2. AnthropicClassifier - Uses Anthropic Messages API
+  3. OllamaClassifier - Uses OpenAI-compatible local API
+- Factory function create_classifier() selects provider from config
+- Temperature set to 0.0 for deterministic classification
+
+**Response Parsing:**
+- Handles JSON wrapped in markdown code blocks (```json)
+- Validates category against enum, defaults to UNKNOWN if invalid
+- Clamps confidence to [0.0, 1.0] range
+- Validates required fields (category, confidence)
+- Provider/model metadata captured for learning
+
+**Unit Tests (16 tests, all passing):**
+- ClassificationResult.to_dict() conversion
+- JSON parsing (valid, markdown-wrapped, invalid)
+- Invalid category handling (defaults to UNKNOWN)
+- Confidence range clamping
+- Missing field validation
+- Invalid JSON error handling
+- API key validation for all providers
+- Successful classification mocking for all providers
+- Factory function provider selection
+- Invalid provider error handling
+
+**Test Results:**
+✓ 16/16 tests passed
+✓ All edge cases covered (invalid JSON, missing fields, out-of-range values)
+✓ All three providers tested with mocked responses
+✓ Response parsing robust to various formats
+
+**Next Steps:**
+Phase 3 - Gmail Actions:
+- Implement storage.py (SQLite state tracking)
+- Implement processor.py (main processing loop)
+- Label management and application
+- Archive operations
+- Integration of classifier with Gmail client
+
+EOF
+
