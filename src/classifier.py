@@ -9,12 +9,6 @@ from typing import Any
 
 import anthropic
 from openai import OpenAI
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from src.config import Config
 
@@ -52,17 +46,17 @@ class ClassificationResult:
         }
 
 
-# Classification prompt - designed to work well with all AI providers
-CLASSIFICATION_PROMPT = """You are an expert email classifier for job application emails.
+# System message - sets context once, sent with every request
+SYSTEM_MESSAGE = """You are an expert email classifier for job application emails.
 
-Analyze the email below and classify it into ONE of these categories:
+Classify emails into ONE of these categories:
 
-1. **acknowledgement** - The company confirms they received your application
+1. **acknowledgement** - Company confirms they received your application
    - Usually automated responses
    - May mention "received", "reviewing", "thank you for applying"
    - No specific action required yet
 
-2. **rejection** - The company is declining your application
+2. **rejection** - Company is declining your application
    - May be polite ("we've decided to pursue other candidates")
    - May mention "not moving forward", "not selected", "other applicants"
    - Can occur at any stage (initial screening, after interview, etc.)
@@ -85,18 +79,17 @@ Analyze the email below and classify it into ONE of these categories:
    - Spam or unclear intent
 
 Respond with ONLY valid JSON in this exact format:
-{{
+{
   "category": "one of: acknowledgement, rejection, followup_required, jobboard, unknown",
   "confidence": 0.95,
   "reasoning": "Brief explanation of why you chose this category"
-}}
+}"""
 
-Email Subject: {subject}
+# User message template - just the email content
+USER_MESSAGE_TEMPLATE = """Subject: {subject}
 
-Email Body:
-{body}
-
-Classification (JSON only):"""
+Body:
+{body}"""
 
 
 class EmailClassifier(ABC):
@@ -194,21 +187,18 @@ class OpenAIClassifier(EmailClassifier):
         self.client = OpenAI(api_key=config.openai_api_key)
         self.model = config.openai_model
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((Exception,)),
-        reraise=True,
-    )
     def classify(self, subject: str, body: str) -> ClassificationResult:
-        """Classify email using OpenAI with automatic retry on failures."""
-        prompt = CLASSIFICATION_PROMPT.format(subject=subject, body=body)
+        """Classify email using OpenAI (SDK has built-in retry logic)."""
+        user_message = USER_MESSAGE_TEMPLATE.format(subject=subject, body=body)
 
         logger.debug(f"Classifying with OpenAI model: {self.model}")
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": SYSTEM_MESSAGE},
+                    {"role": "user", "content": user_message},
+                ],
                 temperature=0.0,  # Deterministic output
                 max_tokens=500,
             )
@@ -220,7 +210,7 @@ class OpenAIClassifier(EmailClassifier):
             return self._parse_classification_response(content, "openai", self.model)
 
         except Exception as e:
-            logger.warning(f"OpenAI classification attempt failed: {e}")
+            logger.error(f"OpenAI classification failed: {e}")
             raise
 
 
@@ -235,15 +225,9 @@ class AnthropicClassifier(EmailClassifier):
         self.client = anthropic.Anthropic(api_key=config.anthropic_api_key)
         self.model = config.anthropic_model
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((Exception,)),
-        reraise=True,
-    )
     def classify(self, subject: str, body: str) -> ClassificationResult:
-        """Classify email using Anthropic Claude with automatic retry on failures."""
-        prompt = CLASSIFICATION_PROMPT.format(subject=subject, body=body)
+        """Classify email using Anthropic Claude (SDK has built-in retry logic)."""
+        user_message = USER_MESSAGE_TEMPLATE.format(subject=subject, body=body)
 
         logger.debug(f"Classifying with Anthropic model: {self.model}")
         try:
@@ -251,7 +235,8 @@ class AnthropicClassifier(EmailClassifier):
                 model=self.model,
                 max_tokens=500,
                 temperature=0.0,  # Deterministic output
-                messages=[{"role": "user", "content": prompt}],
+                system=SYSTEM_MESSAGE,
+                messages=[{"role": "user", "content": user_message}],
             )
 
             content = response.content[0].text
@@ -261,7 +246,7 @@ class AnthropicClassifier(EmailClassifier):
             return self._parse_classification_response(content, "anthropic", self.model)
 
         except Exception as e:
-            logger.warning(f"Anthropic classification attempt failed: {e}")
+            logger.error(f"Anthropic classification failed: {e}")
             raise
 
 
@@ -272,25 +257,23 @@ class OllamaClassifier(EmailClassifier):
         """Initialize Ollama classifier."""
         super().__init__(config)
         self.client = OpenAI(
-            base_url=config.ollama_base_url, api_key="ollama"  # Ollama doesn't need real key
+            base_url=config.ollama_base_url,
+            api_key="ollama",  # Ollama doesn't need real key
         )
         self.model = config.ollama_model
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((Exception,)),
-        reraise=True,
-    )
     def classify(self, subject: str, body: str) -> ClassificationResult:
-        """Classify email using Ollama with automatic retry on failures."""
-        prompt = CLASSIFICATION_PROMPT.format(subject=subject, body=body)
+        """Classify email using Ollama (SDK has built-in retry logic)."""
+        user_message = USER_MESSAGE_TEMPLATE.format(subject=subject, body=body)
 
         logger.debug(f"Classifying with Ollama model: {self.model}")
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": SYSTEM_MESSAGE},
+                    {"role": "user", "content": user_message},
+                ],
                 temperature=0.0,  # Deterministic output
                 max_tokens=500,
             )
@@ -302,7 +285,7 @@ class OllamaClassifier(EmailClassifier):
             return self._parse_classification_response(content, "ollama", self.model)
 
         except Exception as e:
-            logger.warning(f"Ollama classification attempt failed: {e}")
+            logger.error(f"Ollama classification failed: {e}")
             raise
 
 
@@ -329,5 +312,5 @@ def create_classifier(config: Config) -> EmailClassifier:
         return OllamaClassifier(config)
     else:
         raise ValueError(
-            f"Invalid AI provider: {provider}. " "Must be 'openai', 'anthropic', or 'ollama'"
+            f"Invalid AI provider: {provider}. Must be 'openai', 'anthropic', or 'ollama'"
         )

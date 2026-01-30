@@ -9,11 +9,8 @@ for processing emails, viewing statistics, and managing the classification syste
 import argparse
 import logging
 import sys
-from pathlib import Path
 
-from src.classifier import create_classifier
 from src.config import Config, setup_logging
-from src.gmail_client import GmailClient
 from src.processor import EmailProcessor
 from src.storage import EmailStorage
 
@@ -43,6 +40,7 @@ def cmd_run(args: argparse.Namespace, config: Config) -> int:
 
         # Initialize processor (creates components internally)
         processor = EmailProcessor(config)
+        processor.authenticate()
 
         # Build Gmail query
         query = args.query or "in:inbox"
@@ -52,11 +50,6 @@ def cmd_run(args: argparse.Namespace, config: Config) -> int:
             query += f" before:{args.before}"
 
         logger.info(f"Gmail Query: {query}")
-
-        # Process inbox
-        logger.info(f"Gmail Query: {query}")
-
-        # Process inbox
         logger.info("Starting email processing...")
         stats = processor.process_inbox(query=query, max_messages=args.limit)
 
@@ -74,10 +67,13 @@ def cmd_run(args: argparse.Namespace, config: Config) -> int:
         if db_stats:
             logger.info("\nDATABASE STATISTICS:")
             logger.info("-" * 60)
+            # Show individual categories (excluding total)
             for category, count in sorted(db_stats.items()):
-                logger.info(f"  {category:20s}: {count:5d}")
+                if category != "total":
+                    logger.info(f"  {category:20s}: {count:5d}")
             logger.info("-" * 60)
-            logger.info(f"  {'TOTAL':20s}: {sum(db_stats.values()):5d}")
+            # Show total (already calculated in get_stats)
+            logger.info(f"  {'TOTAL':20s}: {db_stats.get('total', 0):5d}")
             logger.info("=" * 60)
 
         return 0
@@ -131,11 +127,13 @@ def cmd_stats(args: argparse.Namespace, config: Config) -> int:
                 print(f"\n  {email['processed_at']}")
                 print(f"  From: {email['from_email']}")
                 print(f"  Subject: {email['subject'][:70]}...")
-                print(f"  Classification: {email['classification']} (confidence: {email['confidence']:.2f})")
+                classification = email["classification"]
+                confidence = email["confidence"]
+                print(f"  Classification: {classification} (confidence: {confidence:.2f})")
                 print(f"  Provider: {email['provider']} / {email['model']}")
-                if email['label_applied']:
+                if email["label_applied"]:
                     print(f"  Label: {email['label_applied']}", end="")
-                    if email['archived']:
+                    if email["archived"]:
                         print(" + ARCHIVED")
                     else:
                         print()
@@ -161,7 +159,7 @@ def cmd_reset(args: argparse.Namespace, config: Config) -> int:
     try:
         storage = EmailStorage(config.database_path)
         stats = storage.get_stats()
-        total = sum(stats.values()) if stats else 0
+        total = stats.get("total", 0) if stats else 0
 
         if not args.force:
             print(f"This will delete {total} processed email records from the database.")
