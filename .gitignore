@@ -144,6 +144,15 @@ ENV/
 env.bak/
 venv.bak/
 
+# JobMail secrets and credentials
+secrets.env
+credentials.json
+token.json
+
+# JobMail database
+jobmail.db
+*.db
+
 # Spyder project settings
 .spyderproject
 .spyproject
