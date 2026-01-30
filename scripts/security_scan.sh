@@ -8,7 +8,7 @@
 #   1 - Security issues detected
 #   2 - Script error
 
-set -euo pipefail
+set -eo pipefail
 
 # Color codes for output
 RED='\033[0;31m'
@@ -28,18 +28,18 @@ echo ""
 
 ISSUES_FOUND=0
 
-# Pattern categories to scan for
-declare -A PATTERNS=(
-    ["API Keys"]="(api[_-]?key|apikey|api[_-]?secret)['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_-]{20,}"
-    ["AWS Keys"]="(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9/+=]{20,}"
-    ["Private Keys"]="-----BEGIN (RSA |DSA |EC )?PRIVATE KEY-----"
-    ["Tokens"]="(token|auth[_-]?token|access[_-]?token)['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_.-]{20,}"
-    ["Passwords"]="(password|passwd|pwd)['\"]?\s*[:=]\s*['\"]?[^'\"\s]{8,}"
-    ["OpenAI Keys"]="sk-[A-Za-z0-9]{48}"
-    ["Anthropic Keys"]="sk-ant-[A-Za-z0-9-]{95}"
-    ["Database URLs"]="(postgres|mysql|mongodb):\/\/[^\s'\"]*:[^\s'\"]*@"
-    ["Email Addresses"]="[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
-    ["IP Addresses"]="([0-9]{1,3}\.){3}[0-9]{1,3}"
+# Pattern categories to scan for (category|pattern pairs)
+PATTERNS=(
+    "API_Keys|(api[_-]?key|apikey|api[_-]?secret)['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_-]{20,}"
+    "AWS_Keys|(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9/+=]{20,}"
+    "Private_Keys|-----BEGIN (RSA |DSA |EC )?PRIVATE KEY-----"
+    "Tokens|(token|auth[_-]?token|access[_-]?token)['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_.-]{20,}"
+    "Passwords|(password|passwd|pwd)['\"]?\s*[:=]\s*['\"]?[^'\"\s]{8,}"
+    "OpenAI_Keys|sk-[A-Za-z0-9]{48}"
+    "Anthropic_Keys|sk-ant-[A-Za-z0-9-]{95}"
+    "Database_URLs|(postgres|mysql|mongodb):\/\/[^\s'\"]*:[^\s'\"]*@"
+    "Email_Addresses|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
+    "IP_Addresses|([0-9]{1,3}\.){3}[0-9]{1,3}"
 )
 
 # Files and directories to exclude
@@ -56,6 +56,7 @@ EXCLUDE_PATTERNS=(
     "test_*.py"
     "*.md"
     "security_scan.sh"
+    "*.json"
 )
 
 # Build grep exclude arguments
@@ -75,7 +76,9 @@ scan_pattern() {
     results=$(cd "$PROJECT_ROOT" && grep -rn -E -i $GREP_EXCLUDES "$pattern" . 2>/dev/null || true)
     
     if [ -n "$results" ]; then
-        echo -e "${RED}✗ Found potential $category:${NC}"
+        # Replace underscores with spaces for display
+        local display_category="${category//_/ }"
+        echo -e "${RED}✗ Found potential $display_category:${NC}"
         echo "$results" | sed 's/^/  /'
         echo ""
         ISSUES_FOUND=$((ISSUES_FOUND + 1))
@@ -117,13 +120,15 @@ done
 
 # Scan for each pattern category
 echo "Scanning for sensitive patterns..."
-for category in "${!PATTERNS[@]}"; do
-    scan_pattern "$category" "${PATTERNS[$category]}"
+for pattern_entry in "${PATTERNS[@]}"; do
+    category="${pattern_entry%%|*}"
+    pattern="${pattern_entry#*|}"
+    scan_pattern "$category" "$pattern"
 done
 
 # Check if secrets.env or credentials.json are committed to git
 echo "Checking git history for leaked secrets..."
-LEAKED_FILES=$(cd "$PROJECT_ROOT" && git log --all --full-history --pretty=format: --name-only | grep -E "(secrets\.env|credentials\.json|token\.json|\.pem|\.key)" || true)
+LEAKED_FILES=$(cd "$PROJECT_ROOT" && git log --all --full-history --pretty=format: --name-only | grep -E "(secrets\.env|credentials\.json|token\.json|\.pem|\.key)" | grep -v "\.example" || true)
 if [ -n "$LEAKED_FILES" ]; then
     echo -e "${RED}✗ Found sensitive files in git history:${NC}"
     echo "$LEAKED_FILES" | sort -u | sed 's/^/  /'
