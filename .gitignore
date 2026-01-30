@@ -148,6 +148,7 @@ venv.bak/
 secrets.env
 credentials.json
 token.json
+client_secret*.json
 
 # JobMail database
 jobmail.db
