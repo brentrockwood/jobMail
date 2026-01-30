@@ -9,6 +9,14 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +28,15 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 class GmailClient:
     """Gmail API client with OAuth2 authentication."""
 
-    def __init__(self, credentials_file: Path, token_file: Path) -> None:
+    def __init__(self, config: Config) -> None:
         """
         Initialize Gmail client.
 
         Args:
-            credentials_file: Path to OAuth2 credentials JSON file
-            token_file: Path to store/load OAuth2 token
+            config: Application configuration
         """
-        self.credentials_file = credentials_file
-        self.token_file = token_file
+        self.credentials_file = config.gmail_credentials_file
+        self.token_file = config.gmail_token_file
         self.service: Any = None
         self.creds: Credentials | None = None
 
@@ -83,11 +90,17 @@ class GmailClient:
         self.service = build("gmail", "v1", credentials=self.creds)
         logger.info("Gmail authentication successful")
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception,)),
+        reraise=True,
+    )
     def list_messages(
         self, query: str = "", max_results: int = 100, label_ids: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """
-        List messages matching query.
+        List messages matching query with automatic retry on failures.
 
         Args:
             query: Gmail search query (e.g., "is:unread in:inbox")
@@ -98,7 +111,7 @@ class GmailClient:
             List of message metadata dicts
 
         Raises:
-            Exception: If API call fails
+            Exception: If API call fails after retries
         """
         if not self.service:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
@@ -119,12 +132,18 @@ class GmailClient:
             logger.info(f"Found {len(messages)} messages")
             return messages
         except Exception as e:
-            logger.error(f"Failed to list messages: {e}")
+            logger.warning(f"Failed to list messages (will retry): {e}")
             raise
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception,)),
+        reraise=True,
+    )
     def get_message(self, message_id: str, format: str = "full") -> dict[str, Any]:
         """
-        Get full message details.
+        Get full message details with automatic retry on failures.
 
         Args:
             message_id: Gmail message ID
@@ -134,7 +153,7 @@ class GmailClient:
             Message details dict
 
         Raises:
-            Exception: If API call fails
+            Exception: If API call fails after retries
         """
         if not self.service:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
@@ -149,9 +168,15 @@ class GmailClient:
             )
             return message
         except Exception as e:
-            logger.error(f"Failed to get message {message_id}: {e}")
+            logger.warning(f"Failed to get message {message_id} (will retry): {e}")
             raise
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception,)),
+        reraise=True,
+    )
     def modify_message(
         self,
         message_id: str,
@@ -159,7 +184,7 @@ class GmailClient:
         remove_label_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         """
-        Modify message labels.
+        Modify message labels with automatic retry on failures.
 
         Args:
             message_id: Gmail message ID
@@ -170,7 +195,7 @@ class GmailClient:
             Modified message dict
 
         Raises:
-            Exception: If API call fails
+            Exception: If API call fails after retries
         """
         if not self.service:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
@@ -192,7 +217,7 @@ class GmailClient:
             logger.info(f"Modified message {message_id}")
             return result
         except Exception as e:
-            logger.error(f"Failed to modify message {message_id}: {e}")
+            logger.warning(f"Failed to modify message {message_id} (will retry): {e}")
             raise
 
     def create_label(self, name: str) -> dict[str, Any]:
@@ -284,7 +309,7 @@ class GmailClient:
             Modified message dict
 
         Raises:
-            Exception: If API call fails
+            Exception: If API call fails after retries
         """
         logger.debug(f"Archiving message: {message_id}")
         return self.modify_message(message_id, remove_label_ids=["INBOX"])
@@ -301,7 +326,7 @@ class GmailClient:
             Modified message dict
 
         Raises:
-            Exception: If API call fails
+            Exception: If API call fails after retries
         """
         label_id = self.get_or_create_label(label_name)
         logger.debug(f"Applying label '{label_name}' to message {message_id}")

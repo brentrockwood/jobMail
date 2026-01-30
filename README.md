@@ -120,7 +120,17 @@ This installs testing and code quality tools:
 Process unread job emails in your inbox:
 
 ```bash
-python -m src.main
+# Process inbox (default: 20 emails)
+python main.py run
+
+# Process with custom limit
+python main.py run --limit 50
+
+# Process with date filters
+python main.py run --after 2024/01/01 --before 2024/12/31
+
+# Process with custom query
+python main.py run --query "from:noreply@linkedin.com"
 ```
 
 ### Dry Run Mode
@@ -128,12 +138,32 @@ python -m src.main
 Test without making changes:
 
 ```bash
-# Set in secrets.env
-DRY_RUN=true
+# Dry run via CLI flag
+python main.py run --dry-run --limit 10
 
-# Or export temporarily
-export DRY_RUN=true
-python -m src.main
+# Or set in secrets.env
+DRY_RUN=true
+python main.py run
+```
+
+### View Statistics
+
+```bash
+# Show classification statistics
+python main.py stats
+
+# Show statistics with recent emails
+python main.py stats --recent 10
+```
+
+### Reset Database
+
+```bash
+# Clear all processed email records (with confirmation)
+python main.py reset
+
+# Skip confirmation
+python main.py reset --force
 ```
 
 ### Configuration Options
@@ -154,52 +184,50 @@ All configuration is via environment variables in `secrets.env`:
 
 ### Automated Runs
 
-For unattended operation, set up a cron job:
+For unattended/production operation, see the **[Deployment Guide](docs/DEPLOYMENT.md)** for complete instructions on:
+
+- Setting up cron jobs
+- Configuring systemd timers
+- Log rotation and monitoring
+- Security best practices
+- Troubleshooting
+
+Quick cron example:
 
 ```bash
 # Edit crontab
 crontab -e
 
-# Run every hour
-0 * * * * cd /path/to/jobmail && /path/to/jobmail/venv/bin/python -m src.main >> /var/log/jobmail.log 2>&1
+# Run every 4 hours
+0 */4 * * * cd /path/to/jobmail && .venv/bin/python main.py run >> /var/log/jobmail.log 2>&1
 ```
-
-Or use systemd timer (see deployment documentation).
 
 ## Development
 
-### Running Tests
+### Run All Checks
 
 ```bash
+# Run all checks (tests, linting, type checking, security)
+./scripts/run_checks.sh
+```
+
+### Individual Checks
+
+```bash
+# Run tests
 pytest
-```
 
-### Code Formatting
+# Code formatting
+black src/ tests/ main.py
 
-```bash
-black src/ tests/
-```
+# Linting
+ruff check src/ tests/ main.py
 
-### Linting
+# Type checking
+mypy src/ main.py
 
-```bash
-ruff check src/ tests/
-```
-
-### Type Checking
-
-```bash
-mypy src/
-```
-
-### Security Scanning
-
-```bash
-# Install trufflehog (one-time)
-# See: https://github.com/trufflesecurity/trufflehog
-
-# Run security scan
-trufflehog filesystem . --no-update
+# Security scan
+./scripts/security_scan.sh
 ```
 
 ## Project Structure
@@ -208,15 +236,20 @@ trufflehog filesystem . --no-update
 jobmail/
 ├── src/
 │   ├── __init__.py
-│   ├── main.py              # Entry point
 │   ├── config.py            # Configuration management
 │   ├── gmail_client.py      # Gmail API wrapper
 │   ├── classifier.py        # AI classification logic
 │   ├── processor.py         # Main processing loop
 │   └── storage.py           # SQLite state tracking
 ├── tests/                   # Test files
-├── project/                 # Project documentation
-├── venv/                    # Virtual environment (not in git)
+├── scripts/
+│   ├── run_checks.sh        # Run all quality checks
+│   └── security_scan.sh     # Security scanning
+├── docs/
+│   └── DEPLOYMENT.md        # Production deployment guide
+├── project/                 # Project planning & context
+├── main.py                  # CLI entry point
+├── .venv/                   # Virtual environment (not in git)
 ├── credentials.json         # Gmail OAuth credentials (not in git)
 ├── token.json              # Gmail OAuth token (not in git)
 ├── secrets.env             # Your secrets (not in git)
