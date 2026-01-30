@@ -291,10 +291,3 @@ Gmail API has rate limits. If you hit them:
 - OAuth tokens are encrypted at rest by Google's library
 - Use `gmail.modify` scope (not full `gmail` access) for least privilege
 
-## License
-
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
