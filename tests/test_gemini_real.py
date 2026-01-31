@@ -27,7 +27,7 @@ def test_gemini_real():
     config = Config.from_env()
     config.ai_provider = "gemini"
     config.gemini_api_key = api_key
-    config.gemini_model = "gemini-2.0-flash-exp"
+    config.gemini_model = "gemini-2.0-flash"
 
     print(f"Testing Gemini classifier with model: {config.gemini_model}")
     print(f"API key: {api_key[:10]}...{api_key[-4:]}")

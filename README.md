@@ -200,7 +200,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-5-20250929  # Latest Claude model
 ```bash
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your-gemini-api-key-here
-GEMINI_MODEL=gemini-2.0-flash-exp  # Options: gemini-2.0-flash-exp, gemini-1.5-pro, gemini-1.5-flash
+GEMINI_MODEL=gemini-2.0-flash  # Options: gemini-2.5-flash, gemini-2.0-flash, gemini-exp-1206
 ```
 
 **Ollama Configuration:**

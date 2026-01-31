@@ -29,7 +29,7 @@ def mock_config() -> Config:
     config.ollama_base_url = "http://localhost:11434"
     config.ollama_model = "llama2"
     config.gemini_api_key = "test-gemini-key"
-    config.gemini_model = "gemini-2.0-flash-exp"
+    config.gemini_model = "gemini-2.0-flash"
     config.ai_provider = "openai"
     return config
 
@@ -332,12 +332,12 @@ class TestGeminiClassifier:
         assert result.category == ClassificationCategory.JOBBOARD
         assert result.confidence == 0.97
         assert result.provider == "gemini"
-        assert result.model == "gemini-2.0-flash-exp"
+        assert result.model == "gemini-2.0-flash"
 
         # Verify API call
         mock_client.chat.completions.create.assert_called_once()
         call_args = mock_client.chat.completions.create.call_args
-        assert call_args.kwargs["model"] == "gemini-2.0-flash-exp"
+        assert call_args.kwargs["model"] == "gemini-2.0-flash"
         assert call_args.kwargs["temperature"] == 0.0
 
 

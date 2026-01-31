@@ -65,7 +65,7 @@ class Config:
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
             ollama_model=os.getenv("OLLAMA_MODEL", "llama2"),
             gemini_api_key=os.getenv("GEMINI_API_KEY"),
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             # Gmail
             gmail_credentials_file=Path(os.getenv("GMAIL_CREDENTIALS_FILE", "credentials.json")),
             gmail_token_file=Path(os.getenv("GMAIL_TOKEN_FILE", "token.json")),
