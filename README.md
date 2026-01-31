@@ -23,7 +23,7 @@ JobMail can classify and process:
 
 - Python 3.12 or higher
 - Gmail account with API access enabled
-- API key for at least one AI provider (OpenAI, Anthropic, or local Ollama)
+- API key for at least one AI provider (OpenAI, Anthropic, Gemini, or local Ollama)
 
 ## Setup
 
@@ -65,6 +65,7 @@ cp .env.example secrets.env
 # At minimum, set one of these:
 # - OPENAI_API_KEY (if using OpenAI)
 # - ANTHROPIC_API_KEY (if using Anthropic)
+# - GEMINI_API_KEY (if using Gemini)
 # - OLLAMA_BASE_URL (if using local Ollama)
 ```
 
@@ -172,12 +173,13 @@ All configuration is via environment variables in `secrets.env`. See `secrets.en
 
 #### AI Provider Selection
 
-JobMail supports three AI providers. Choose the one that best fits your needs:
+JobMail supports four AI providers. Choose the one that best fits your needs:
 
 | Provider | Pros | Cons | Setup |
 |----------|------|------|-------|
 | **OpenAI** | High accuracy, fast responses | Costs per API call | Get API key from [OpenAI Platform](https://platform.openai.com/api-keys) |
 | **Anthropic** | Excellent quality, privacy-focused | Costs per API call | Get API key from [Anthropic Console](https://console.anthropic.com/) |
+| **Gemini** | Latest Google AI, competitive pricing | Newer, experimental models | Get API key from [Google AI Studio](https://aistudio.google.com/apikey) |
 | **Ollama** | Free, runs locally, data stays private | Requires local installation, slower | Install from [Ollama.ai](https://ollama.ai) |
 
 **OpenAI Configuration:**
@@ -192,6 +194,13 @@ OPENAI_MODEL=gpt-4  # Options: gpt-4, gpt-4-turbo, gpt-3.5-turbo
 AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-5-20250929  # Latest Claude model
+```
+
+**Gemini Configuration:**
+```bash
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-2.0-flash  # Options: gemini-2.5-flash, gemini-2.0-flash, gemini-exp-1206
 ```
 
 **Ollama Configuration:**
@@ -225,7 +234,7 @@ OLLAMA_BASE_URL=http://your-server:11434/v1
 
 | Variable | Default | Range/Options | Description |
 |----------|---------|---------------|-------------|
-| `AI_PROVIDER` | `openai` | `openai`, `anthropic`, `ollama` | Which AI provider to use |
+| `AI_PROVIDER` | `openai` | `openai`, `anthropic`, `gemini`, `ollama` | Which AI provider to use |
 | `CONFIDENCE_THRESHOLD` | `0.8` | `0.75`-`0.85` recommended | Minimum confidence for classification. Lower = more emails labeled (may include false positives). Higher = fewer emails labeled (only high confidence). |
 | `BATCH_SIZE` | `20` | `20`-`50` regular runs, `100`-`500` bulk processing | Number of emails to process per run. Larger batches may hit API rate limits. |
 | `DRY_RUN` | `false` | `true`, `false` | If `true`, log actions without making changes to Gmail. Use for testing. |

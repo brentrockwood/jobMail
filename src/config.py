@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv("secrets.env")
 load_dotenv(".env.example")
 
-AIProvider = Literal["openai", "anthropic", "ollama"]
+AIProvider = Literal["openai", "anthropic", "ollama", "gemini"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
@@ -28,6 +28,8 @@ class Config:
     anthropic_model: str
     ollama_base_url: str
     ollama_model: str
+    gemini_api_key: str | None
+    gemini_model: str
 
     # Gmail
     gmail_credentials_file: Path
@@ -62,6 +64,8 @@ class Config:
             anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929"),
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
             ollama_model=os.getenv("OLLAMA_MODEL", "llama2"),
+            gemini_api_key=os.getenv("GEMINI_API_KEY"),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             # Gmail
             gmail_credentials_file=Path(os.getenv("GMAIL_CREDENTIALS_FILE", "credentials.json")),
             gmail_token_file=Path(os.getenv("GMAIL_TOKEN_FILE", "token.json")),
@@ -87,17 +91,18 @@ class Config:
             raise ValueError("OPENAI_API_KEY is required when AI_PROVIDER is 'openai'")
         if self.ai_provider == "anthropic" and not self.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY is required when AI_PROVIDER is 'anthropic'")
-        if self.ai_provider not in ["openai", "anthropic", "ollama"]:
+        if self.ai_provider == "gemini" and not self.gemini_api_key:
+            raise ValueError("GEMINI_API_KEY is required when AI_PROVIDER is 'gemini'")
+        if self.ai_provider not in ["openai", "anthropic", "ollama", "gemini"]:
             raise ValueError(
                 f"Invalid AI_PROVIDER: {self.ai_provider}. "
-                "Must be 'openai', 'anthropic', or 'ollama'"
+                "Must be 'openai', 'anthropic', 'ollama', or 'gemini'"
             )
 
         # Validate confidence threshold
         if not 0.0 <= self.confidence_threshold <= 1.0:
             raise ValueError(
-                f"CONFIDENCE_THRESHOLD must be between 0.0 and 1.0, "
-                f"got {self.confidence_threshold}"
+                f"CONFIDENCE_THRESHOLD must be between 0.0 and 1.0, got {self.confidence_threshold}"
             )
 
         # Validate batch size

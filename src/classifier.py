@@ -289,6 +289,47 @@ class OllamaClassifier(EmailClassifier):
             raise
 
 
+class GeminiClassifier(EmailClassifier):
+    """Google Gemini based email classifier using OpenAI-compatible API."""
+
+    def __init__(self, config: Config) -> None:
+        """Initialize Gemini classifier."""
+        super().__init__(config)
+        if not config.gemini_api_key:
+            raise ValueError("Gemini API key not configured")
+        self.client = OpenAI(
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=config.gemini_api_key,
+        )
+        self.model = config.gemini_model
+
+    def classify(self, subject: str, body: str) -> ClassificationResult:
+        """Classify email using Gemini (SDK has built-in retry logic)."""
+        user_message = USER_MESSAGE_TEMPLATE.format(subject=subject, body=body)
+
+        logger.debug(f"Classifying with Gemini model: {self.model}")
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_MESSAGE},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.0,  # Deterministic output
+                max_tokens=500,
+            )
+
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Empty response from Gemini")
+
+            return self._parse_classification_response(content, "gemini", self.model)
+
+        except Exception as e:
+            logger.error(f"Gemini classification failed: {e}")
+            raise
+
+
 def create_classifier(config: Config) -> EmailClassifier:
     """
     Factory function to create appropriate classifier based on config.
@@ -310,7 +351,9 @@ def create_classifier(config: Config) -> EmailClassifier:
         return AnthropicClassifier(config)
     elif provider == "ollama":
         return OllamaClassifier(config)
+    elif provider == "gemini":
+        return GeminiClassifier(config)
     else:
         raise ValueError(
-            f"Invalid AI provider: {provider}. Must be 'openai', 'anthropic', or 'ollama'"
+            f"Invalid AI provider: {provider}. Must be 'openai', 'anthropic', 'ollama', or 'gemini'"
         )
