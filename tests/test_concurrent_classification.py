@@ -211,7 +211,7 @@ def main():
         ai_provider="ollama",
         ollama_base_url="http://ai1.lab:11434/v1",
         # ollama_model="gpt-oss:120b",
-        ollama_model="mistral:latest",
+        ollama_model="mistral:concurrent",
         # Other required config fields
         openai_api_key=None,
         openai_model="gpt-4",
@@ -289,9 +289,12 @@ Best configuration: {best_concurrency} concurrent workers
 - Time saved: {baseline["total_time"] - best_result["total_time"]:.2f}s
 
 For processing 1000 emails:
-- Sequential: ~{(baseline["total_time"] / len(emails)) * 1000:.0f}s ({(baseline["total_time"] / len(emails)) * 1000 / 60:.1f} minutes)
-- Concurrent ({best_concurrency}): ~{(best_result["total_time"] / len(emails)) * 1000:.0f}s ({(best_result["total_time"] / len(emails)) * 1000 / 60:.1f} minutes)
-- Savings: {((baseline["total_time"] - best_result["total_time"]) / len(emails)) * 1000 / 60:.1f} minutes
+- Sequential: ~{(baseline["total_time"] / len(emails)) * 1000:.0f}s \
+({(baseline["total_time"] / len(emails)) * 1000 / 60:.1f} minutes)
+- Concurrent ({best_concurrency}): ~{(best_result["total_time"] / len(emails)) * 1000:.0f}s \
+({(best_result["total_time"] / len(emails)) * 1000 / 60:.1f} minutes)
+- Savings: {((baseline["total_time"] - best_result["total_time"]) / len(emails)) * 1000 / 60:.1f} \
+minutes
 
 Note: Optimal concurrency depends on:
 - Server CPU/GPU resources

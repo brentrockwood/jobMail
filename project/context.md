@@ -1163,3 +1163,41 @@ Next Steps: User wants to continue testing other configurations with gpt-oss:120
 
 EOF
 
+
+---
+date: 2026-02-05T00:13:53-0500
+hash: mt2fnAa0BbNaDlkD+joQTnjMhwkNYCAl19ciZwrrxAQ=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 29cdee5a1c043ed43cb025f0f0af1ef744d48af3
+---
+
+Add Concurrent Classification Testing
+
+Created comprehensive concurrent classification test to measure throughput improvements with parallel processing.
+
+Implementation: Uses Python ThreadPoolExecutor for simple, thread-safe parallelism. Tests multiple concurrency levels and compares against sequential baseline.
+
+Adaptive Configuration:
+- Large/slow models (gpt-oss:120b): Tests 2, 3, 4 workers with 10 emails
+- Fast models (mistral): Tests 2, 4, 8, 16 workers with 32 emails (corpus replicated 3x for saturation)
+
+Features:
+- Sequential baseline measurement
+- Real-time progress with per-email timing
+- Comprehensive metrics: speedup multiplier, parallel efficiency, time savings
+- Result validation (ensures concurrent matches sequential)
+- Performance projections for 1000 email batches
+
+User Testing Results:
+- Confirmed speedup with mistral (actual numbers TBD from user's run)
+- Requested 16 worker test for mistral specifically
+
+Deliverable: tests/test_concurrent_classification.py (306 lines)
+
+Changes: Modified worker_counts logic to auto-detect mistral and scale to [2,4,8,16]. Added corpus replication to ensure sufficient test data for high concurrency.
+
+Committed and pushed to phase-6-gemini-support branch.
+
+EOF
+

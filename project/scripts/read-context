@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Default values
+CONTEXT_FILE="context.md"
+NUM_ENTRIES=1
+SHOW_HEADERS_ONLY=false
+
+# Usage function
+usage() {
+    cat << EOF
+Usage: read-context [OPTIONS]
+
+Read the last N entries from context.md in reverse chronological order.
+
+Options:
+  -n, --num N         Number of entries to read (default: 1)
+  -f, --file FILE     Context file to read (default: context.md)
+  -h, --headers-only  Show only entry headers (date, hash, agent, model)
+  --help              Show this help message
+
+Examples:
+  read-context                    # Read last entry
+  read-context -n 3               # Read last 3 entries
+  read-context --headers-only     # Show headers of last entry only
+  read-context -n 5 -h            # Show headers of last 5 entries
+EOF
+    exit 1
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -n|--num)
+            NUM_ENTRIES="$2"
+            shift 2
+            ;;
+        -f|--file)
+            CONTEXT_FILE="$2"
+            shift 2
+            ;;
+        -h|--headers-only)
+            SHOW_HEADERS_ONLY=true
+            shift
+            ;;
+        --help)
+            usage
+            ;;
+        *)
+            echo "Error: Unknown option $1" >&2
+            usage
+            ;;
+    esac
+done
+
+# Validate file exists
+if [[ ! -f "$CONTEXT_FILE" ]]; then
+    echo "Error: File not found: $CONTEXT_FILE" >&2
+    exit 1
+fi
+
+# Validate num is a positive integer
+if ! [[ "$NUM_ENTRIES" =~ ^[0-9]+$ ]] || [[ "$NUM_ENTRIES" -lt 1 ]]; then
+    echo "Error: --num must be a positive integer" >&2
+    exit 1
+fi
+
+# Strategy: Use awk to find entry boundaries and extract last N
+# Entry structure:
+#   ---
+#   date: YYYY-MM-DD...
+#   hash: ...
+#   agent: ...
+#   model: ...
+#   [startCommit: ...]
+#   ---
+#   
+#   body text
+#   
+#   EOF
+
+if [[ "$SHOW_HEADERS_ONLY" == true ]]; then
+    awk -v n="$NUM_ENTRIES" '
+        # Entry starts with --- after EOF or at beginning
+        /^---$/ && (NR == 1 || prev_line ~ /^(EOF)?$/) {
+            if (entry_count > 0) {
+                # Save previous header
+                entry_count++
+            } else {
+                entry_count = 1
+            }
+            in_header = 1
+            headers[entry_count] = $0
+            next
+        }
+        
+        # Header ends with second ---
+        /^---$/ && in_header {
+            headers[entry_count] = headers[entry_count] "\n" $0
+            in_header = 0
+            next
+        }
+        
+        in_header {
+            headers[entry_count] = headers[entry_count] "\n" $0
+        }
+        
+        { prev_line = $0 }
+        
+        END {
+            # Output last n headers
+            start_idx = entry_count - n + 1
+            if (start_idx < 1) start_idx = 1
+            
+            for (i = start_idx; i <= entry_count; i++) {
+                print headers[i]
+                if (i < entry_count) print ""
+            }
+        }
+    ' "$CONTEXT_FILE"
+else
+    awk -v n="$NUM_ENTRIES" '
+        # Entry starts with --- after EOF or at beginning
+        /^---$/ && (NR == 1 || prev_line ~ /^(EOF)?$/) {
+            if (entry_count > 0 && in_entry) {
+                # Finish previous entry
+                entry_count++
+            }
+            if (entry_count == 0) entry_count = 1
+            in_entry = 1
+            entries[entry_count] = $0
+            next
+        }
+        
+        in_entry {
+            entries[entry_count] = entries[entry_count] "\n" $0
+        }
+        
+        { prev_line = $0 }
+        
+        END {
+            # Output last n entries
+            start_idx = entry_count - n + 1
+            if (start_idx < 1) start_idx = 1
+            
+            for (i = start_idx; i <= entry_count; i++) {
+                print entries[i]
+                if (i < entry_count) print ""
+            }
+        }
+    ' "$CONTEXT_FILE"
+fi
