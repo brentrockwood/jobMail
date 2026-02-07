@@ -31,6 +31,7 @@ def mock_config() -> Config:
     config.gemini_api_key = "test-gemini-key"
     config.gemini_model = "gemini-2.0-flash"
     config.ai_provider = "openai"
+    config.confidence_threshold = 0.8
     return config
 
 
@@ -146,7 +147,7 @@ class TestEmailClassifierParsing:
         assert result.confidence == 0.0
 
     def test_parse_missing_required_fields_raises_error(self, mock_config: Config) -> None:
-        """Test that missing required fields raises ValueError."""
+        """Test missing category raises error, missing confidence uses config threshold."""
 
         class TestClassifier(EmailClassifier):
             def classify(self, subject: str, body: str) -> ClassificationResult:
@@ -154,14 +155,17 @@ class TestEmailClassifierParsing:
 
         classifier = TestClassifier(mock_config)
 
-        # Missing confidence
+        # Missing confidence - should default to config.confidence_threshold (0.8)
         response = json.dumps({"category": "acknowledgement"})
-        with pytest.raises(ValueError, match="Missing required fields"):
-            classifier._parse_classification_response(response, "test", "model-1")
+        result = classifier._parse_classification_response(response, "test", "model-1")
+        assert result.category == ClassificationCategory.ACKNOWLEDGEMENT
+        assert result.confidence == mock_config.confidence_threshold
+        assert result.provider == "test"
+        assert result.model == "model-1"
 
-        # Missing category
+        # Missing category - should raise error
         response = json.dumps({"confidence": 0.5})
-        with pytest.raises(ValueError, match="Missing required fields"):
+        with pytest.raises(ValueError, match="Missing required 'category' field"):
             classifier._parse_classification_response(response, "test", "model-1")
 
     def test_parse_invalid_json_raises_error(self, mock_config: Config) -> None:

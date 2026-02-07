@@ -908,3 +908,355 @@ Phase 6 is complete and ready for review/merge. All checklist items in project/p
 
 EOF
 
+
+**Real API Testing (after billing activation):**
+✓ 4/4 test cases passed with high confidence
+- Test 1: acknowledgement → 0.99 confidence ✓
+- Test 2: jobboard → 0.99 confidence ✓
+- Test 3: followup_required → 0.98 confidence ✓
+- Test 4: rejection → 0.99 confidence ✓
+
+All classifications accurate with clear reasoning provided.
+
+**"Send 'er" Execution:**
+1. ✓ Security scan - Passed (expected findings: secrets.env gitignored, db has emails)
+2. ✓ All tests - 48/48 passing
+3. ✓ Linter - Black and Ruff clean
+4. ✓ Build - N/A (Python project)
+5. ✓ Push - Pushed to origin/phase-6-gemini-support
+6. ✓ PR created - https://github.com/brentrockwood/jobMail/pull/7
+
+**Pull Request:**
+- PR #7: "Phase 6: Add Google Gemini AI provider support"
+- URL: https://github.com/brentrockwood/jobMail/pull/7
+- Status: Open, ready for review/merge
+- Commits: 2 (initial implementation + model name fix)
+
+Phase 6 complete and delivered successfully.
+
+EOF
+
+**Merge Status:**
+✓ PR #7 merged to main
+✓ Phase 6 complete
+
+**Next Session:**
+- Investigate bug with smaller model
+- User has encountered an issue when using a smaller model variant
+
+EOF
+
+---
+date: 2026-01-31T06:28:32-05:00
+hash: +yMH9bLmN9NTpP35TaMnuUr632RkHBn3mPBNgxWv5Lg=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 24cd82e9451f06fee32c3bf87c856743dfb0fa51
+---
+
+Small Model Prompt Engineering - Successfully resolved Ollama classification issues.
+
+**Problem:** Small local models (llama3.1:8b, llama3.2:3b, qwen2.5:7b) were extracting job details instead of classifying emails, despite explicit instructions and response_format constraints.
+
+**Models Tested:**
+- ❌ llama3.1:8b - Job extraction mode
+- ❌ llama3.2:3b-instruct-q8_0 - Job extraction mode
+- ❌ llama3.1:8b-instruct-q8_0 - Job extraction mode  
+- ❌ qwen2.5:7b-instruct - Job extraction mode
+- ✅ mistral:latest - Works correctly (SELECTED)
+- ✅ phi3:14b - Works correctly (not production tested)
+
+**Root Cause:** LLaMA model family showed strong pretraining bias toward job data extraction. When seeing job listings + JSON mode constraint, models defaulted to extracting structured job data regardless of instructions.
+
+**Solution Implemented:**
+
+1. **Ollama-Specific Prompt** (src/classifier.py OllamaClassifier.classify())
+   - Created separate system prompt optimized for small models
+   - Clear hierarchy: "Multiple job listings (>1 job) = jobboard" as CRITICAL RULE
+   - Subject line examples for better context
+   - Simplified language, removed verbose explanations
+
+2. **Smart Body Truncation**
+   - Changed from full body (10K chars) to first 1500 + last 500 chars
+   - Captures opening (classification signals) and closing (calls-to-action)
+   - Prevents extraction behavior triggered by long job listing content
+   - Adds "[...]" marker between truncated sections
+
+3. **Technical Parameters**
+   - max_tokens=120 (tight to prevent extraction)
+   - temperature=0.0 (deterministic)
+   - response_format={"type": "json_object"} (JSON enforcement)
+
+4. **Applied response_format to All Providers**
+   - Added to OpenAI, Gemini classifiers for consistency
+   - Ollama already had it
+   - Anthropic doesn't support it but follows instructions well
+
+**Testing Results with mistral:latest:**
+- ✓ 14/14 emails classified successfully (no extraction errors)
+- ✓ All 5 categories used: jobboard, followup_required, acknowledgement, rejection, unknown
+- ✓ Confidence variance: 0.50-1.00 (healthy distribution)
+- ✓ Speed: ~2-3 seconds per email
+- ✓ Dry-run successful on real inbox data
+
+**Files Modified:**
+- src/classifier.py - Ollama-specific prompt and truncation logic
+- tests/test_model_comparison.py - Created systematic model testing script
+
+**Configuration:**
+- Updated secrets.env to use OLLAMA_MODEL=mistral:latest
+- Model successfully processes real job application emails without extraction
+
+**Prompt Engineering Lessons Learned:**
+1. Small models need simpler, more directive prompts than large models
+2. Context size matters - too much data triggers unwanted behaviors
+3. Model family matters - LLaMA models have strong extraction bias
+4. response_format alone insufficient - needs prompt + truncation strategy
+5. Few-shot examples can confuse small models; directive rules work better
+6. Smart truncation (beginning + end) preserves classification signals
+
+**Next Steps:**
+User identified need for better logging/analysis system:
+- Current: CLI logs + basic SQLite schema
+- Requirement: Easy model performance comparison and ad-hoc analysis
+- Planning deferred to next session to discuss:
+  * What kind of analysis needed (accuracy, confidence distribution, etc.)
+  * Preferred analysis tool (enhanced SQLite, CSV export, JSON logs, etc.)
+  * Additional data points to capture (model version, latency, etc.)
+  * Immediate vs future scope
+
+**Status:** mistral:latest working well in production. Ready for full inbox processing after planning session on enhanced logging.
+
+
+---
+date: 2026-02-04T18:30:00-0500
+hash: $(echo -n "gpt-oss:120b Model Testing and Analysis
+
+Comprehensive testing of gpt-oss:120b (120B parameter open source model) on Ollama to evaluate performance, reliability, and suitability for production use.
+
+**Testing Activities:**
+1. Created comprehensive test suite (test_gptoss_120b.py) with full corpus testing
+2. Built raw response diagnostic script (test_gptoss_raw_response.py) to inspect API responses
+3. Created configuration testing script (test_gptoss_fixes.py) to identify optimal parameters
+4. Documented complete analysis in gptoss_120b_analysis.md
+
+**Test Results:**
+- Overall success rate: 70% (7/10 emails)
+- 3 failures due to empty/truncated responses
+- Average latency: 14.85s per email (range: 5.94s - 30.51s)
+- When successful: High confidence (0.92-0.99), accurate classifications
+
+**Root Cause Analysis:**
+- Identified insufficient max_tokens (120) as primary failure cause
+- Model generates internal reasoning/thinking before JSON output
+- finish_reason='length' indicates truncation before JSON appears
+- Fix: Increase max_tokens to 200+ for 100% reliability
+
+**Key Findings:**
+1. Size ≠ Quality - 120B model underperforms 7B mistral:latest in both speed and reliability
+2. Performance issues - 5-10x slower than smaller models
+3. Token inefficiency - Requires 200+ tokens vs 120 for other models
+4. Unpredictable behavior - Same prompts work 70% of time, fail 30%
+
+**Comparison with mistral:latest:**
+- gpt-oss:120b: 70% success, 14.85s avg, needs 200+ tokens
+- mistral:latest: 100% success, 2-3s avg, works with 120 tokens
+
+**Recommendation:**
+NOT RECOMMENDED for production. Continue with mistral:latest which offers superior reliability, speed, and efficiency.
+
+**Deliverables:**
+- tests/gptoss_120b_analysis.md - Complete analysis document
+- tests/test_gptoss_120b.py - Full corpus test (210 lines)
+- tests/test_gptoss_raw_response.py - Raw API diagnostics (153 lines)  
+- tests/test_gptoss_fixes.py - Configuration testing (164 lines)
+
+**Technical Notes:**
+- All test scripts include detailed output with statistics
+- Diagnostic tools can be reused for testing other large models
+- Analysis documents optimal configurations if user chooses to use gpt-oss:120b
+
+**Next Steps:**
+User wants to continue testing other configurations with gpt-oss:120b despite recommendation.
+
+EOF" | openssl dgst -sha256 -binary | base64)
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 24cd82e9451f06fee32c3bf87c856743dfb0fa51
+---
+
+gpt-oss:120b Model Testing and Analysis
+
+Comprehensive testing of gpt-oss:120b (120B parameter open source model) on Ollama to evaluate performance, reliability, and suitability for production use.
+
+**Testing Activities:**
+1. Created comprehensive test suite (test_gptoss_120b.py) with full corpus testing
+2. Built raw response diagnostic script (test_gptoss_raw_response.py) to inspect API responses
+3. Created configuration testing script (test_gptoss_fixes.py) to identify optimal parameters
+4. Documented complete analysis in gptoss_120b_analysis.md
+
+**Test Results:**
+- Overall success rate: 70% (7/10 emails)
+- 3 failures due to empty/truncated responses
+- Average latency: 14.85s per email (range: 5.94s - 30.51s)
+- When successful: High confidence (0.92-0.99), accurate classifications
+
+**Root Cause Analysis:**
+- Identified insufficient max_tokens (120) as primary failure cause
+- Model generates internal reasoning/thinking before JSON output
+- finish_reason='length' indicates truncation before JSON appears
+- Fix: Increase max_tokens to 200+ for 100% reliability
+
+**Key Findings:**
+1. Size ≠ Quality - 120B model underperforms 7B mistral:latest in both speed and reliability
+2. Performance issues - 5-10x slower than smaller models
+3. Token inefficiency - Requires 200+ tokens vs 120 for other models
+4. Unpredictable behavior - Same prompts work 70% of time, fail 30%
+
+**Comparison with mistral:latest:**
+- gpt-oss:120b: 70% success, 14.85s avg, needs 200+ tokens
+- mistral:latest: 100% success, 2-3s avg, works with 120 tokens
+
+**Recommendation:**
+NOT RECOMMENDED for production. Continue with mistral:latest which offers superior reliability, speed, and efficiency.
+
+**Deliverables:**
+- tests/gptoss_120b_analysis.md - Complete analysis document
+- tests/test_gptoss_120b.py - Full corpus test (210 lines)
+- tests/test_gptoss_raw_response.py - Raw API diagnostics (153 lines)  
+- tests/test_gptoss_fixes.py - Configuration testing (164 lines)
+
+**Technical Notes:**
+- All test scripts include detailed output with statistics
+- Diagnostic tools can be reused for testing other large models
+- Analysis documents optimal configurations if user chooses to use gpt-oss:120b
+
+**Next Steps:**
+User wants to continue testing other configurations with gpt-oss:120b despite recommendation.
+
+
+---
+date: 2026-02-04T23:37:28-0500
+hash: l0CYV54dRWvoBP78oBLP9N2vVq1wCVSYKJwmF2psLqk=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 24cd82e9451f06fee32c3bf87c856743dfb0fa51
+---
+
+gpt-oss:120b Model Testing and Analysis
+
+Comprehensive testing of gpt-oss:120b (120B parameter open source model) on Ollama to evaluate performance, reliability, and suitability for production use.
+
+Testing Activities: Created comprehensive test suite, raw response diagnostic script, configuration testing script, and complete analysis documentation.
+
+Test Results: 70% success rate (7/10 emails), 3 failures due to empty/truncated responses, 14.85s average latency.
+
+Root Cause: Insufficient max_tokens (120) causes truncation. Model generates internal reasoning before JSON output. Fix: Increase to 200+ tokens.
+
+Key Findings: 120B model underperforms 7B mistral in speed and reliability. 5-10x slower. Requires 67% more tokens. Unpredictable (30% failure rate).
+
+Recommendation: NOT RECOMMENDED for production. Continue with mistral:latest (100% success, 2-3s, works with 120 tokens).
+
+Deliverables: tests/gptoss_120b_analysis.md, test_gptoss_120b.py, test_gptoss_raw_response.py, test_gptoss_fixes.py
+
+Next Steps: User wants to continue testing other configurations with gpt-oss:120b.
+
+EOF
+
+
+---
+date: 2026-02-05T00:13:53-0500
+hash: mt2fnAa0BbNaDlkD+joQTnjMhwkNYCAl19ciZwrrxAQ=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 29cdee5a1c043ed43cb025f0f0af1ef744d48af3
+---
+
+Add Concurrent Classification Testing
+
+Created comprehensive concurrent classification test to measure throughput improvements with parallel processing.
+
+Implementation: Uses Python ThreadPoolExecutor for simple, thread-safe parallelism. Tests multiple concurrency levels and compares against sequential baseline.
+
+Adaptive Configuration:
+- Large/slow models (gpt-oss:120b): Tests 2, 3, 4 workers with 10 emails
+- Fast models (mistral): Tests 2, 4, 8, 16 workers with 32 emails (corpus replicated 3x for saturation)
+
+Features:
+- Sequential baseline measurement
+- Real-time progress with per-email timing
+- Comprehensive metrics: speedup multiplier, parallel efficiency, time savings
+- Result validation (ensures concurrent matches sequential)
+- Performance projections for 1000 email batches
+
+User Testing Results:
+- Confirmed speedup with mistral (actual numbers TBD from user's run)
+- Requested 16 worker test for mistral specifically
+
+Deliverable: tests/test_concurrent_classification.py (306 lines)
+
+Changes: Modified worker_counts logic to auto-detect mistral and scale to [2,4,8,16]. Added corpus replication to ensure sufficient test data for high concurrency.
+
+Committed and pushed to phase-6-gemini-support branch.
+
+EOF
+
+
+---
+date: 2026-02-07T10:55:00-0500
+hash: EKvPqO1F3xzRdMaHXYjN8pLwG2tVcSbK4fAuZ9iYmQo=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 29cdee5a1c043ed43cb025f0f0af1ef744d48af3
+---
+
+Send 'er execution completed successfully.
+
+Consolidated previous uncommitted work from multiple sessions:
+
+**Changes Committed:**
+1. Classifier improvements (src/classifier.py):
+   - Simplified system prompt for better small model performance
+   - Added Ollama-specific prompt with concrete examples  
+   - Implemented smart body truncation (first 1500 + last 500 chars)
+   - Added response_format JSON constraint to all providers (OpenAI, Gemini, Ollama)
+   - Reduced Ollama max_tokens to 120 to prevent job extraction behavior
+
+2. Testing infrastructure:
+   - test_model_comparison.py: Systematic Ollama model testing (221 lines)
+   - test_ollama_json_mode.py: Validate JSON output format (65 lines)
+   - test_small_model_categories.py: Category validation tests (138 lines)
+   - Fixed import errors (load_config → Config.from_env)
+   - Fixed test_concurrent_classification.py line length issues for linter
+
+3. Project infrastructure:
+   - Added notes/ and *.bak to .gitignore
+   - Added project/scripts/read-context utility
+   - Updated context.md with previous session work
+
+**Send 'er Execution Steps:**
+1. ✓ Security scan - Passed (expected findings: secrets.env, credentials.json, token.json properly gitignored, database contains emails)
+2. ✓ All tests - 48/48 unit tests passing (test_classifier, test_storage, test_processor)
+3. ✓ Linters - Black and Ruff clean (auto-fixed f-string, import, and line length issues)
+4. ✓ Build - N/A (Python project, no build step)
+5. ✓ Commit - Created comprehensive commit message (7a9558d)
+6. ✓ Push - Pushed to origin/phase-6-gemini-support
+7. ✓ PR - Existing PR #8 updated with new commit
+
+**PR Status:**
+- PR #8: "Add gpt-oss:120b model testing and analysis"
+- URL: https://github.com/brentrockwood/jobMail/pull/8
+- Status: Open, ready for review/merge
+- Branch: phase-6-gemini-support
+- Additions: 2688 lines, Deletions: 92 lines
+
+**Technical Notes:**
+- Fixed pytest import issues by using PYTHONPATH=/Users/br/src/jobMail
+- Package installed with pip install -e . for development
+- All manual test scripts (model comparison, JSON mode validation) can run independently
+- Ollama prompt engineering successfully prevents job extraction behavior in small models
+
+**Recommendation:**
+PR #8 ready for review and merge. All tests passing, code quality checks clean, comprehensive testing infrastructure in place.
+
+EOF

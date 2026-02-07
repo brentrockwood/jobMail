@@ -47,49 +47,43 @@ class ClassificationResult:
 
 
 # System message - sets context once, sent with every request
-SYSTEM_MESSAGE = """You are an expert email classifier for job application emails.
+SYSTEM_MESSAGE = """Classify email type. Output ONLY this JSON (no other text):
+{"category": "X", "confidence": Y, "reasoning": "Z"}
 
-Classify emails into ONE of these categories:
+category must be ONE of: acknowledgement, rejection, followup_required, jobboard, unknown
 
-1. **acknowledgement** - Company confirms they received your application
-   - Usually automated responses
-   - May mention "received", "reviewing", "thank you for applying"
-   - No specific action required yet
+Key distinctions:
+- acknowledgement: About YOUR specific application (received, sent to, viewed, thanks)
+- jobboard: Multiple job listings or job alerts
+- followup_required: Action needed from you (schedule, complete, respond)
+- rejection: Application declined or position filled
+- unknown: Spam or unclear
 
-2. **rejection** - Company is declining your application
-   - May be polite ("we've decided to pursue other candidates")
-   - May mention "not moving forward", "not selected", "other applicants"
-   - Can occur at any stage (initial screening, after interview, etc.)
+Examples:
+"We received your application" → {"category": "acknowledgement", "confidence": 0.95,
+"reasoning": "received"}
+"Your application was sent to hiring manager" → {"category": "acknowledgement",
+"confidence": 0.95, "reasoning": "sent notification"}
+"Your application was viewed" → {"category": "acknowledgement", "confidence": 0.95,
+"reasoning": "viewed notification"}
+"Thanks for applying to this position" → {"category": "acknowledgement", "confidence": 0.95,
+"reasoning": "application confirmation"}
+"We're moving forward with other candidates" → {"category": "rejection",
+"confidence": 0.95, "reasoning": "declined"}
+"Schedule your interview here" → {"category": "followup_required",
+"confidence": 0.95, "reasoning": "action needed"}
+"5 new jobs: Engineer at Google, Dev at Amazon" → {"category": "jobboard",
+"confidence": 0.95, "reasoning": "job alert"}
+"Buy cheap watches" → {"category": "unknown", "confidence": 0.90,
+"reasoning": "spam"}
 
-3. **followup_required** - Action required from you
-   - Scheduling interview requests
-   - Requests for additional information
-   - Assignment/assessment invitations
-   - Any email requiring your response or action
+Do NOT extract job details. Do NOT list jobs. Output ONLY the classification JSON."""
 
-4. **jobboard** - Automated notifications from job boards/platforms
-   - Indeed, LinkedIn, Glassdoor, ZipRecruiter alerts
-   - "New jobs matching your search"
-   - Job recommendations
-   - Usually promotional/automated
-
-5. **unknown** - Unclear or doesn't fit above categories
-   - Ambiguous emails
-   - Unrelated to job applications
-   - Spam or unclear intent
-
-Respond with ONLY valid JSON in this exact format:
-{
-  "category": "one of: acknowledgement, rejection, followup_required, jobboard, unknown",
-  "confidence": 0.95,
-  "reasoning": "Brief explanation of why you chose this category"
-}"""
-
-# User message template - just the email content
+# User message template - ultra minimal
 USER_MESSAGE_TEMPLATE = """Subject: {subject}
+Body: {body}
 
-Body:
-{body}"""
+Output JSON only:"""
 
 
 class EmailClassifier(ABC):
@@ -143,9 +137,9 @@ class EmailClassifier(ABC):
 
             data = json.loads(text)
 
-            # Validate required fields
-            if "category" not in data or "confidence" not in data:
-                raise ValueError(f"Missing required fields in response: {data}")
+            # Validate required fields - category is required, confidence is optional
+            if "category" not in data:
+                raise ValueError(f"Missing required 'category' field in response: {data}")
 
             # Validate category
             try:
@@ -154,11 +148,19 @@ class EmailClassifier(ABC):
                 logger.warning(f"Invalid category '{data['category']}', defaulting to unknown")
                 category = ClassificationCategory.UNKNOWN
 
-            # Validate confidence
-            confidence = float(data["confidence"])
-            if not 0.0 <= confidence <= 1.0:
-                logger.warning(f"Confidence {confidence} out of range, clamping to [0,1]")
-                confidence = max(0.0, min(1.0, confidence))
+            # Validate confidence (default to config threshold if missing)
+            if "confidence" not in data:
+                default_confidence = self.config.confidence_threshold
+                logger.warning(
+                    f"Missing confidence in response from {provider}, "
+                    f"defaulting to configured threshold: {default_confidence}"
+                )
+                confidence = default_confidence
+            else:
+                confidence = float(data["confidence"])
+                if not 0.0 <= confidence <= 1.0:
+                    logger.warning(f"Confidence {confidence} out of range, clamping to [0,1]")
+                    confidence = max(0.0, min(1.0, confidence))
 
             return ClassificationResult(
                 category=category,
@@ -201,6 +203,7 @@ class OpenAIClassifier(EmailClassifier):
                 ],
                 temperature=0.0,  # Deterministic output
                 max_tokens=500,
+                response_format={"type": "json_object"},  # Force JSON output
             )
 
             content = response.choices[0].message.content
@@ -264,18 +267,52 @@ class OllamaClassifier(EmailClassifier):
 
     def classify(self, subject: str, body: str) -> ClassificationResult:
         """Classify email using Ollama (SDK has built-in retry logic)."""
-        user_message = USER_MESSAGE_TEMPLATE.format(subject=subject, body=body)
+        # Ollama-specific prompt: concise examples, strict format
+        system_prompt = """Classify the email TYPE. Output this JSON:
+{"category": "X", "confidence": 0.0-1.0, "reasoning": "brief"}
+
+category must be ONE of: acknowledgement, rejection, followup_required, jobboard, unknown
+
+How to classify:
+- Multiple job listings (>1 job) = jobboard
+- "received", "was sent to", "was viewed", "thanks for applying" = acknowledgement
+- "not moving forward" / "position filled" = rejection
+- "schedule" / "complete assessment" / "action required" = followup_required
+- Spam/unclear = unknown
+
+CRITICAL: acknowledgement vs jobboard
+- "Your application was sent to Google" = acknowledgement (about YOUR application)
+- "Your application was viewed by hiring manager" = acknowledgement (YOUR app activity)
+- "Thanks for applying to Software Engineer" = acknowledgement (confirmation)
+- "5 new jobs matching your search" = jobboard (multiple job listings)
+
+Examples:
+Subject: "Application sent to Company X" → acknowledgement
+Subject: "Your application was viewed" → acknowledgement
+Subject: "Thanks for applying" → acknowledgement
+Subject: "New jobs for you" → jobboard
+Subject: "Interview request" → followup_required
+Subject: "Position filled" → rejection
+
+Output ONLY the JSON. Do NOT extract job details."""
+
+        # Smart truncation: first 1500 chars + last 500 chars
+        # This captures opening (category clues) and closing (signatures/actions)
+        truncated_body = body[:1500] + "\n\n[...]\n\n" + body[-500:] if len(body) > 2000 else body
+
+        user_message = USER_MESSAGE_TEMPLATE.format(subject=subject, body=truncated_body)
 
         logger.debug(f"Classifying with Ollama model: {self.model}")
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": SYSTEM_MESSAGE},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ],
                 temperature=0.0,  # Deterministic output
-                max_tokens=500,
+                max_tokens=120,  # Tight limit to prevent extraction
+                response_format={"type": "json_object"},  # Force JSON output
             )
 
             content = response.choices[0].message.content
@@ -317,6 +354,7 @@ class GeminiClassifier(EmailClassifier):
                 ],
                 temperature=0.0,  # Deterministic output
                 max_tokens=500,
+                response_format={"type": "json_object"},  # Force JSON output
             )
 
             content = response.choices[0].message.content
