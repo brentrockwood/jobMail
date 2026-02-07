@@ -125,9 +125,9 @@ class EmailClassifier(ABC):
 
             data = json.loads(text)
 
-            # Validate required fields
-            if "category" not in data or "confidence" not in data:
-                raise ValueError(f"Missing required fields in response: {data}")
+            # Validate required fields - category is required, confidence is optional
+            if "category" not in data:
+                raise ValueError(f"Missing required 'category' field in response: {data}")
 
             # Validate category
             try:
@@ -136,11 +136,15 @@ class EmailClassifier(ABC):
                 logger.warning(f"Invalid category '{data['category']}', defaulting to unknown")
                 category = ClassificationCategory.UNKNOWN
 
-            # Validate confidence
-            confidence = float(data["confidence"])
-            if not 0.0 <= confidence <= 1.0:
-                logger.warning(f"Confidence {confidence} out of range, clamping to [0,1]")
-                confidence = max(0.0, min(1.0, confidence))
+            # Validate confidence (default to 0.8 if missing)
+            if "confidence" not in data:
+                logger.warning(f"Missing confidence in response from {provider}, defaulting to 0.8")
+                confidence = 0.8
+            else:
+                confidence = float(data["confidence"])
+                if not 0.0 <= confidence <= 1.0:
+                    logger.warning(f"Confidence {confidence} out of range, clamping to [0,1]")
+                    confidence = max(0.0, min(1.0, confidence))
 
             return ClassificationResult(
                 category=category,
