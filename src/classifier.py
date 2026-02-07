@@ -52,9 +52,22 @@ SYSTEM_MESSAGE = """Classify email type. Output ONLY this JSON (no other text):
 
 category must be ONE of: acknowledgement, rejection, followup_required, jobboard, unknown
 
+Key distinctions:
+- acknowledgement: About YOUR specific application (received, sent to, viewed, thanks)
+- jobboard: Multiple job listings or job alerts
+- followup_required: Action needed from you (schedule, complete, respond)
+- rejection: Application declined or position filled
+- unknown: Spam or unclear
+
 Examples:
 "We received your application" → {"category": "acknowledgement", "confidence": 0.95,
 "reasoning": "received"}
+"Your application was sent to hiring manager" → {"category": "acknowledgement",
+"confidence": 0.95, "reasoning": "sent notification"}
+"Your application was viewed" → {"category": "acknowledgement", "confidence": 0.95,
+"reasoning": "viewed notification"}
+"Thanks for applying to this position" → {"category": "acknowledgement", "confidence": 0.95,
+"reasoning": "application confirmation"}
 "We're moving forward with other candidates" → {"category": "rejection",
 "confidence": 0.95, "reasoning": "declined"}
 "Schedule your interview here" → {"category": "followup_required",
@@ -64,7 +77,6 @@ Examples:
 "Buy cheap watches" → {"category": "unknown", "confidence": 0.90,
 "reasoning": "spam"}
 
-Email with multiple job listings = "jobboard"
 Do NOT extract job details. Do NOT list jobs. Output ONLY the classification JSON."""
 
 # User message template - ultra minimal
@@ -263,16 +275,24 @@ category must be ONE of: acknowledgement, rejection, followup_required, jobboard
 
 How to classify:
 - Multiple job listings (>1 job) = jobboard
-- "We received your application" = acknowledgement
-- "We're not moving forward" / "position filled" = rejection
-- "Please schedule" / "complete assessment" = followup_required
+- "received", "was sent to", "was viewed", "thanks for applying" = acknowledgement
+- "not moving forward" / "position filled" = rejection
+- "schedule" / "complete assessment" / "action required" = followup_required
 - Spam/unclear = unknown
 
+CRITICAL: acknowledgement vs jobboard
+- "Your application was sent to Google" = acknowledgement (about YOUR application)
+- "Your application was viewed by hiring manager" = acknowledgement (YOUR app activity)
+- "Thanks for applying to Software Engineer" = acknowledgement (confirmation)
+- "5 new jobs matching your search" = jobboard (multiple job listings)
+
 Examples:
+Subject: "Application sent to Company X" → acknowledgement
+Subject: "Your application was viewed" → acknowledgement
+Subject: "Thanks for applying" → acknowledgement
 Subject: "New jobs for you" → jobboard
-Subject: "Application received" → acknowledgement
 Subject: "Interview request" → followup_required
-Subject: "Application status" + body has "other candidates" → rejection
+Subject: "Position filled" → rejection
 
 Output ONLY the JSON. Do NOT extract job details."""
 
