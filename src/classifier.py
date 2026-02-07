@@ -136,10 +136,14 @@ class EmailClassifier(ABC):
                 logger.warning(f"Invalid category '{data['category']}', defaulting to unknown")
                 category = ClassificationCategory.UNKNOWN
 
-            # Validate confidence (default to 0.8 if missing)
+            # Validate confidence (default to config threshold if missing)
             if "confidence" not in data:
-                logger.warning(f"Missing confidence in response from {provider}, defaulting to 0.8")
-                confidence = 0.8
+                default_confidence = self.config.confidence_threshold
+                logger.warning(
+                    f"Missing confidence in response from {provider}, "
+                    f"defaulting to configured threshold: {default_confidence}"
+                )
+                confidence = default_confidence
             else:
                 confidence = float(data["confidence"])
                 if not 0.0 <= confidence <= 1.0:
