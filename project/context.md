@@ -1201,3 +1201,62 @@ Committed and pushed to phase-6-gemini-support branch.
 
 EOF
 
+
+---
+date: 2026-02-07T10:55:00-0500
+hash: EKvPqO1F3xzRdMaHXYjN8pLwG2tVcSbK4fAuZ9iYmQo=
+agent: OpenCode
+model: claude-sonnet-4-5
+startCommit: 29cdee5a1c043ed43cb025f0f0af1ef744d48af3
+---
+
+Send 'er execution completed successfully.
+
+Consolidated previous uncommitted work from multiple sessions:
+
+**Changes Committed:**
+1. Classifier improvements (src/classifier.py):
+   - Simplified system prompt for better small model performance
+   - Added Ollama-specific prompt with concrete examples  
+   - Implemented smart body truncation (first 1500 + last 500 chars)
+   - Added response_format JSON constraint to all providers (OpenAI, Gemini, Ollama)
+   - Reduced Ollama max_tokens to 120 to prevent job extraction behavior
+
+2. Testing infrastructure:
+   - test_model_comparison.py: Systematic Ollama model testing (221 lines)
+   - test_ollama_json_mode.py: Validate JSON output format (65 lines)
+   - test_small_model_categories.py: Category validation tests (138 lines)
+   - Fixed import errors (load_config → Config.from_env)
+   - Fixed test_concurrent_classification.py line length issues for linter
+
+3. Project infrastructure:
+   - Added notes/ and *.bak to .gitignore
+   - Added project/scripts/read-context utility
+   - Updated context.md with previous session work
+
+**Send 'er Execution Steps:**
+1. ✓ Security scan - Passed (expected findings: secrets.env, credentials.json, token.json properly gitignored, database contains emails)
+2. ✓ All tests - 48/48 unit tests passing (test_classifier, test_storage, test_processor)
+3. ✓ Linters - Black and Ruff clean (auto-fixed f-string, import, and line length issues)
+4. ✓ Build - N/A (Python project, no build step)
+5. ✓ Commit - Created comprehensive commit message (7a9558d)
+6. ✓ Push - Pushed to origin/phase-6-gemini-support
+7. ✓ PR - Existing PR #8 updated with new commit
+
+**PR Status:**
+- PR #8: "Add gpt-oss:120b model testing and analysis"
+- URL: https://github.com/brentrockwood/jobMail/pull/8
+- Status: Open, ready for review/merge
+- Branch: phase-6-gemini-support
+- Additions: 2688 lines, Deletions: 92 lines
+
+**Technical Notes:**
+- Fixed pytest import issues by using PYTHONPATH=/Users/br/src/jobMail
+- Package installed with pip install -e . for development
+- All manual test scripts (model comparison, JSON mode validation) can run independently
+- Ollama prompt engineering successfully prevents job extraction behavior in small models
+
+**Recommendation:**
+PR #8 ready for review and merge. All tests passing, code quality checks clean, comprehensive testing infrastructure in place.
+
+EOF
