@@ -219,3 +219,6 @@ __marimo__/
 notes/
 *.bak
 
+# Databases
+jobMail.db-*
+
